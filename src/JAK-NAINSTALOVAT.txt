@@ -1,11 +1,11 @@
-LODNÍ DENÍK – instalace (verze 1)
+JACHTAŘSKÁ KNÍŽKA – instalace
 =================================
 
 Co je ve složce
 ---------------
 index.html             samotná aplikace
 manifest.webmanifest   název a ikona pro instalaci na plochu
-sw.js                  offline režim (deník funguje bez signálu)
+sw.js                  offline režim (knížka funguje bez signálu)
 icon-*.png             ikony
 
 1) Nahrání na web (jednou, dělá IFP)
@@ -24,7 +24,7 @@ Android (Chrome): otevřít adresu → dole na úvodní obrazovce tlačítko
 iPhone (Safari): otevřít adresu → tlačítko Sdílet → Přidat na plochu.
 Počítač (Chrome/Edge): ikona instalace vpravo v adresním řádku.
 
-Ikona "Lodní deník" se objeví na ploše a aplikace se otevírá
+Ikona "Jachtařská knížka" se objeví na ploše a aplikace se otevírá
 bez lišty prohlížeče. Funguje i bez signálu.
 
 3) Odkaz pro členy
@@ -43,4 +43,4 @@ Data a zálohy
 Aktualizace aplikace
 --------------------
 Přepište soubory na webu novými a v souboru sw.js zvyšte číslo
-verze (denik-v1 → denik-v2). Data uživatelů zůstanou zachovaná.
+verze (např. denik-v3 → denik-v4). Data uživatelů zůstanou zachovaná.

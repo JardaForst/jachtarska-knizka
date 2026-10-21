@@ -1,7 +1,7 @@
 {
-  "name": "Lodní deník – Námořní klub",
-  "short_name": "Lodní deník",
-  "description": "Digitální lodní deník pro jachtaře: plavby, etapy, míle a export do Excelu.",
+  "name": "Jachtařská knížka – Námořní klub",
+  "short_name": "Jachtařská knížka",
+  "description": "Jachtařská knížka: plavby, etapy, míle, praxe a export do Excelu.",
   "lang": "cs",
   "start_url": "./",
   "scope": "./",

@@ -1,6 +1,6 @@
-# Lodní deník
+# Jachtařská knížka
 
-Digitální lodní deník pro členy Námořního klubu. Plavby, denní etapy, souhrn praxe (NM, dny na moři, NM jako kapitán) a export do Excelu. Funguje offline a instaluje se z webu na plochu telefonu.
+Digitální jachtařská knížka pro členy Námořního klubu. Plavby, denní etapy, souhrn praxe (NM, dny na moři, NM jako kapitán) a export do Excelu. Funguje offline a instaluje se z webu na plochu telefonu.
 
 ## Sestavení
 

@@ -1,4 +1,4 @@
-<title>Lodní deník</title>
+<title>Jachtařská knížka</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,7 +67,7 @@ main{padding-block:20px 8px}
 .chip.demo{color:var(--warn)}
 
 /* leg rows */
-.leg{display:grid;grid-template-columns:4.6rem 1fr auto;gap:2px 14px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:12px 16px;cursor:pointer}
+.leg{display:grid;grid-template-columns:5.2rem 1fr auto;gap:2px 14px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:12px 16px;cursor:pointer}
 .leg:hover{background:var(--sea-soft)}
 .leg .d{font:500 .9rem/1.35 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted)}
 .leg .d b{display:block;color:var(--ink);font-weight:500}
@@ -242,15 +242,37 @@ const XLSX = (() => {
 const BFT = ['bezvětří', 'vánek', 'větřík', 'slabý vítr', 'mírný vítr', 'čerstvý vítr', 'silný vítr', 'mírný vichr', 'čerstvý vichr', 'silný vichr', 'plný vichr', 'vichřice', 'orkán'];
 const SEA = ['hladké', 'klidné', 'mírně zvlněné', 'zvlněné', 'mírně rozbouřené', 'rozbouřené', 'velmi rozbouřené', 'vysoké', 'velmi vysoké', 'mimořádně vysoké'];
 const DIRS = ['S', 'SSV', 'SV', 'VSV', 'V', 'VJV', 'JV', 'JJV', 'J', 'JJZ', 'JZ', 'ZJZ', 'Z', 'ZSZ', 'SZ', 'SSZ'];
-const ROLES = ['Kapitán', 'Spolukapitán', 'Člen posádky', 'Výcvik'];
+const ROLES = ['Kapitán', 'První důstojník', 'Posádka', 'Kurzant'];
+// převod funkcí z verze 1 (data uložená v telefonu a starší zálohy)
+const ROLE_V1 = { 'Spolukapitán': 'První důstojník', 'Člen posádky': 'Posádka', 'Výcvik': 'Kurzant' };
+function migrate(d) { for (const v of d.voyages) if (ROLE_V1[v.role]) v.role = ROLE_V1[v.role]; return d; }
 const KINDS = ['Charter', 'Vlastní loď', 'Klubová plavba', 'Výcvik', 'Regata'];
 const n = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(x) ? x : 0; };
 const r1 = v => Math.round(v * 10) / 10;
 
+// Etapa může trvat přes půlnoc i několik dní: date = datum vyplutí, arrDate = datum připlutí
+// (u etap z verze 1 chybí → stejný den).
+const isoDay = iso => { const [y, m, d] = String(iso).split('-').map(Number); return Date.UTC(y, m - 1, d); };
+const addDays = (iso, k) => new Date(isoDay(iso) + k * 864e5).toISOString().slice(0, 10);
+const legEnd = l => l.arrDate && l.arrDate > l.date ? l.arrDate : l.date;
+function legDays(l) {
+  if (!l.date) return [];
+  const out = [l.date], end = legEnd(l);
+  while (out[out.length - 1] < end && out.length < 60) out.push(addDays(out[out.length - 1], 1));
+  return out;
+}
+function legHours(l) {
+  const t = s => /^\d{1,2}:\d{2}$/.test(s || '') ? (([h, m]) => h * 36e5 + m * 6e4)(s.split(':').map(Number)) : null;
+  const a = t(l.dep), b = t(l.arr);
+  if (!l.date || a === null || b === null) return null;
+  const ms = isoDay(legEnd(l)) + b - isoDay(l.date) - a;
+  return ms >= 0 ? r1(ms / 36e5) : null;
+}
+
 function voyageStats(db, vid) {
   const legs = db.legs.filter(l => l.voyageId === vid).sort((a, b) => (a.date + (a.dep || '')).localeCompare(b.date + (b.dep || '')));
-  const days = new Set(legs.filter(l => n(l.nm) > 0).map(l => l.date));
-  const dates = legs.map(l => l.date).filter(Boolean);
+  const days = new Set(legs.filter(l => n(l.nm) > 0).flatMap(legDays));
+  const dates = legs.flatMap(l => [l.date, legEnd(l)]).filter(Boolean).sort();
   return {
     legs, count: legs.length, days: days.size,
     nm: r1(legs.reduce((s, l) => s + n(l.nm), 0)),
@@ -281,7 +303,7 @@ function buildXlsx(db, today) {
   const H = a => a.map(x => ({ v: x, s: 1 }));
 
   const prehled = [
-    [{ v: 'Lodní deník – přehled praxe', s: 6 }],
+    [{ v: 'Jachtařská knížka – přehled praxe', s: 6 }],
     ['Vystaveno', { v: today, date: true }],
     [],
     H(['Ukazatel', 'Hodnota']),
@@ -308,10 +330,11 @@ function buildXlsx(db, today) {
     plavby.push([{ v: 'Celkem', s: 4 }, '', '', '', '', '', '', '', '', '', '', sum('L', 4, vs.reduce((a, x) => a + x.s.count, 0)), sum('M', 4, t.days), sum('N', 5, t.nm), sum('O', 5, t.night), sum('P', 5, t.motor)]);
   }
 
-  const etapyHead = ['Plavba', 'Loď', 'Datum', 'Odkud', 'Kam', 'Vyplutí', 'Připlutí', 'NM', 'Motor (h)', 'Noční plavba (h)', 'Vítr – směr', 'Vítr – Bft', 'Stav moře', 'Poloha', 'Poznámka'];
+  const etapyHead = ['Plavba', 'Loď', 'Datum vyplutí', 'Čas vyplutí', 'Datum připlutí', 'Čas připlutí', 'Odkud', 'Kam', 'Doba plavby (h)', 'NM', 'Motor (h)', 'Noční plavba (h)', 'Vítr – směr', 'Vítr – Bft', 'Stav moře', 'Poloha', 'Poznámka'];
   const etapy = [H(etapyHead)];
   for (const { v, s } of vs) for (const l of s.legs) etapy.push([
-    v.name, v.boat, { v: l.date, date: true }, l.from, l.to, l.dep, l.arr, { v: n(l.nm), s: 3 },
+    v.name, v.boat, { v: l.date, date: true }, l.dep, { v: legEnd(l), date: true }, l.arr, l.from, l.to,
+    legHours(l) !== null ? { v: legHours(l), s: 3 } : '', { v: n(l.nm), s: 3 },
     l.motorH !== '' && l.motorH != null ? { v: n(l.motorH), s: 3 } : '', l.nightH !== '' && l.nightH != null ? { v: n(l.nightH), s: 3 } : '',
     l.windDir, l.bft !== '' && l.bft != null ? +l.bft : '', l.sea !== '' && l.sea != null ? `${l.sea} – ${SEA[+l.sea]}` : '', l.pos, { v: l.notes || '', s: 7 }
   ]);
@@ -319,12 +342,12 @@ function buildXlsx(db, today) {
   return XLSX.workbook([
     { name: 'Přehled', rows: prehled, opts: { widths: [26, 14, 14, 12] } },
     { name: 'Plavby', rows: plavby, opts: { freeze: true, widths: [26, 16, 20, 9, 22, 14, 18, 24, 14, 11, 11, 6, 11, 9, 14, 10, 9, 36], filter: `A1:${XLSX.col(plavbyHead.length - 1)}${last}` } },
-    { name: 'Etapy', rows: etapy, opts: { freeze: true, widths: [24, 16, 11, 18, 18, 9, 9, 8, 10, 14, 11, 10, 20, 26, 40], filter: `A1:${XLSX.col(etapyHead.length - 1)}${etapy.length}` } }
+    { name: 'Etapy', rows: etapy, opts: { freeze: true, widths: [24, 16, 13, 11, 13, 11, 18, 18, 14, 8, 10, 14, 11, 10, 20, 26, 40], filter: `A1:${XLSX.col(etapyHead.length - 1)}${etapy.length}` } }
   ]);
 }
 
 function sampleData() {
-  const v = { id: 'ukazka', sample: true, name: 'Kornati – září 2026', boat: 'Vjetrenjača', boatType: 'Bavaria Cruiser 46', length: '14,3', area: 'Chorvatsko – Kornati a Krka', kind: 'Charter', skipper: 'Jarda F.', crew: '6 osob', role: 'Kapitán', from: '', to: '', notes: 'Ukázková plavba – smažte ji, až začnete psát vlastní deník.' };
+  const v = { id: 'ukazka', sample: true, name: 'Kornati – září 2026', boat: 'Vjetrenjača', boatType: 'Bavaria Cruiser 46', length: '14,3', area: 'Chorvatsko – Kornati a Krka', kind: 'Charter', skipper: 'Jarda F.', crew: '6 osob', role: 'Kapitán', from: '', to: '', notes: 'Ukázková plavba – smažte ji, až začnete zapisovat vlastní plavby.' };
   const L = (date, from, to, dep, arr, nm, motorH, nightH, windDir, bft, sea, pos, notes) => ({ id: 'u' + date + from.slice(0, 3), voyageId: 'ukazka', date, from, to, dep, arr, nm, motorH, nightH, windDir, bft, sea, pos, notes });
   return {
     voyages: [v],
@@ -350,7 +373,7 @@ let confirmKey = null;
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const d = JSON.parse(raw); db = { voyages: d.voyages || [], legs: d.legs || [], meta: d.meta || {} }; return; }
+    if (raw) { const d = JSON.parse(raw); db = migrate({ voyages: d.voyages || [], legs: d.legs || [], meta: d.meta || {} }); return; }
     db = sampleData(); persist();
   } catch (e) { storageOk = false; db = sampleData(); }
 }
@@ -424,7 +447,7 @@ function viewHome() {
       <span class="m"><span class="num">${range(v, s)}</span>${v.boat || v.area ? ' · ' : ''}${h([v.boat, v.area].filter(Boolean).join(' · '))}</span>
       <span class="r"><b>${fmt(s.nm)}</b><span>NM · ${s.days} ${pl(s.days, 'den', 'dny', 'dní')}</span></span>
     </button></li>`).join('')}</ul>`
-      : `<div class="empty"><strong>Deník je prázdný</strong>Založte první plavbu tlačítkem dole. Pak k ní přidávejte jednotlivé dny – odkud, kam, kolik mil a jaký foukal vítr.</div>`}
+      : `<div class="empty"><strong>Knížka je prázdná</strong>Založte první plavbu tlačítkem dole. Pak k ní přidávejte jednotlivé dny – odkud, kam, kolik mil a jaký foukal vítr.</div>`}
 
   <p class="eyebrow">Export a záloha</p>
   <div class="tools">
@@ -436,7 +459,7 @@ function viewHome() {
   ${backupNote}
   ${iosHint()}
   ${storageOk ? '' : '<p class="note warn">Tento prohlížeč nedovoluje ukládat data. Záznamy se po zavření ztratí – stáhněte si zálohu.</p>'}
-  <p class="note">Deník se ukládá jen v tomto zařízení a funguje i bez signálu.</p>`;
+  <p class="note">Knížka se ukládá jen v tomto zařízení a funguje i bez signálu.</p>`;
 }
 
 function viewVoyage(v) {
@@ -444,7 +467,7 @@ function viewVoyage(v) {
   const lastLegs = s.legs;
   const k = 'v' + v.id;
   return `
-  ${v.sample ? `<div class="banner"><p>Tohle je ukázková plavba, ať vidíte, jak deník vypadá vyplněný.</p><button class="btn small" data-a="delVoyage" data-id="${h(v.id)}" data-now="1">Smazat ukázku</button></div>` : ''}
+  ${v.sample ? `<div class="banner"><p>Tohle je ukázková plavba, ať vidíte, jak knížka vypadá vyplněná.</p><button class="btn small" data-a="delVoyage" data-id="${h(v.id)}" data-now="1">Smazat ukázku</button></div>` : ''}
   <section class="vhead">
     <h2>${h(v.name)}</h2>
     <div class="num" style="color:var(--muted)">${range(v, s)}</div>
@@ -468,10 +491,10 @@ function viewVoyage(v) {
   <p class="eyebrow">Etapy</p>
   ${lastLegs.length ? `<ul class="ruled">${lastLegs.map(l => `
     <li><button class="leg" data-a="editLeg" data-id="${h(l.id)}">
-      <span class="d">${wd(l.date)}<b>${fd(l.date, false)}</b></span>
+      <span class="d">${wd(l.date)}<b>${fd(l.date, false)}</b>${legEnd(l) !== l.date ? `<b>– ${fd(legEnd(l), false)}</b>` : ''}</span>
       <span style="min-width:0">
         <span class="route">${h(l.from || '?')} → ${h(l.to || '?')}</span>
-        <span class="wx">${[l.dep && l.arr ? `<span class="num">${h(l.dep)}–${h(l.arr)}</span>` : '', l.windDir || l.bft !== '' && l.bft != null ? `vítr ${h(l.windDir || '')} ${l.bft !== '' && l.bft != null ? h(l.bft) + ' Bft' : ''}` : '', n(l.nightH) ? `noc ${fmt(n(l.nightH))} h` : ''].filter(Boolean).join(' · ')}</span>
+        <span class="wx">${[l.dep && l.arr ? `<span class="num">${h(l.dep)}–${h(l.arr)}</span>` : '', legEnd(l) !== l.date && legHours(l) !== null ? `<span class="num">${fmt(legHours(l))} h</span> na moři` : '', l.windDir || l.bft !== '' && l.bft != null ? `vítr ${h(l.windDir || '')} ${l.bft !== '' && l.bft != null ? h(l.bft) + ' Bft' : ''}` : '', n(l.nightH) ? `noc ${fmt(n(l.nightH))} h` : ''].filter(Boolean).join(' · ')}</span>
         ${l.notes ? `<span class="wx" style="display:block">${h(l.notes)}</span>` : ''}
       </span>
       <span class="nm">${fmt(n(l.nm))}<small>NM</small></span>
@@ -504,7 +527,7 @@ function viewVoyageForm(v) {
       <div class="f t last"><label for="v_len">Délka (m)</label><input id="v_len" name="length" inputmode="decimal" value="${h(v.length)}" placeholder="14,3"></div>
     </fieldset>
     <fieldset><legend>Posádka</legend>
-      <div class="f h"><label for="v_role">Moje funkce</label><select id="v_role" name="role">${ROLES.map(x => opt(x, x, v.role)).join('')}</select></div>
+      <div class="f h"><label for="v_role">Moje funkce</label><select id="v_role" name="role">${opt('', '—', v.role)}${ROLES.map(x => opt(x, x, v.role)).join('')}</select></div>
       <div class="f h"><label for="v_skip">Kapitán</label><input id="v_skip" name="skipper" value="${h(v.skipper)}"></div>
       <div class="f"><label for="v_crew">Posádka <i>(jména nebo počet)</i></label><input id="v_crew" name="crew" value="${h(v.crew)}"></div>
       <div class="f"><label for="v_notes">Poznámka</label><textarea id="v_notes" name="notes">${h(v.notes)}</textarea></div>
@@ -519,16 +542,18 @@ function viewLegForm(v, l) {
   if (!l) {
     const s = voyageStats(db, v.id), prev = s.legs[s.legs.length - 1];
     let date = v.from || todayIso();
-    if (prev && prev.date) { const [y, m, d] = prev.date.split('-').map(Number); const nd = new Date(Date.UTC(y, m - 1, d + 1)); date = nd.toISOString().slice(0, 10); }
-    l = { date, from: prev ? prev.to : '', bft: '', sea: '' };
+    if (prev && prev.date) date = addDays(legEnd(prev), 1);
+    l = { date, arrDate: date, from: prev ? prev.to : '', bft: '', sea: '' };
   }
   const k = 'l' + (l.id || '');
   return `
   <form id="fLeg" novalidate>
     <fieldset><legend>Kdy a kam</legend>
-      <div class="f t"><label for="l_date">Datum</label><input id="l_date" name="date" type="date" required value="${h(l.date)}"></div>
-      <div class="f t"><label for="l_dep">Vyplutí</label><input id="l_dep" name="dep" type="time" value="${h(l.dep)}"></div>
-      <div class="f t last"><label for="l_arr">Připlutí</label><input id="l_arr" name="arr" type="time" value="${h(l.arr)}"></div>
+      <div class="f h"><label for="l_date">Datum vyplutí</label><input id="l_date" name="date" type="date" required value="${h(l.date)}" data-prev="${h(l.date)}"></div>
+      <div class="f h"><label for="l_dep">Čas vyplutí</label><input id="l_dep" name="dep" type="time" value="${h(l.dep)}"></div>
+      <div class="f h"><label for="l_arrDate">Datum připlutí</label><input id="l_arrDate" name="arrDate" type="date" value="${h(legEnd(l))}"></div>
+      <div class="f h"><label for="l_arr">Čas připlutí</label><input id="l_arr" name="arr" type="time" value="${h(l.arr)}"></div>
+      <p class="hint f">Plujete přes noc nebo několik dní? Změňte datum připlutí.</p>
       <div class="f h"><label for="l_from">Odkud</label><input id="l_from" name="from" list="ports" value="${h(l.from)}" placeholder="přístav, marina, kotviště"></div>
       <div class="f h"><label for="l_to">Kam</label><input id="l_to" name="to" list="ports" value="${h(l.to)}"></div>
       <datalist id="ports">${ports().map(p => `<option value="${h(p)}">`).join('')}</datalist>
@@ -561,7 +586,7 @@ function render() {
   if (state.view !== 'home' && (state.id ? !v : state.view !== 'voyageForm')) state = { view: 'home' };
   if (state.view === 'legForm' && state.legId && !db.legs.some(x => x.id === state.legId)) state = { view: 'voyage', id: state.id };
   if (state.view === 'home') {
-    B.innerHTML = bar('Lodní deník', false, 'Námořní klub');
+    B.innerHTML = bar('Jachtařská knížka', false, 'Námořní klub');
     V.innerHTML = viewHome();
     D.innerHTML = `<button class="btn primary" data-a="newVoyage">+ Nová plavba</button>`;
   } else if (state.view === 'voyage') {
@@ -619,7 +644,7 @@ const topLevel = () => { try { return window.top === window; } catch (e) { retur
 function installBtn() { return installEvt && !standalone() ? `<button class="btn" data-a="install">${ICON.phone} Nainstalovat do telefonu</button>` : ''; }
 function iosHint() {
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return ios && !standalone() && topLevel() ? `<p class="note">Na iPhonu deník nainstalujete v Safari: tlačítko Sdílet → Přidat na plochu.</p>` : '';
+  return ios && !standalone() && topLevel() ? `<p class="note">Na iPhonu knížku nainstalujete v Safari: tlačítko Sdílet → Přidat na plochu.</p>` : '';
 }
 
 // ---- akce ----
@@ -642,7 +667,10 @@ document.addEventListener('click', async e => {
   }
   if (a === 'saveLeg') {
     const d = formData('fLeg');
-    if (!d.date) { toast('Vyplňte datum etapy.'); document.getElementById('l_date').focus(); return; }
+    if (!d.date) { toast('Vyplňte datum vyplutí.'); document.getElementById('l_date').focus(); return; }
+    if (!d.arrDate) d.arrDate = d.date;
+    if (d.arrDate < d.date) { toast('Datum připlutí nemůže být dřív než datum vyplutí.'); document.getElementById('l_arrDate').focus(); return; }
+    if (legHours(d) === null && d.dep && d.arr && d.arrDate === d.date) { toast('Připlutí je dřív než vyplutí. Pokud jste dopluli další den, změňte datum připlutí.'); document.getElementById('l_arrDate').focus(); return; }
     for (const f of ['nm', 'motorH', 'nightH']) if (d[f] && !isFinite(parseFloat(d[f].replace(',', '.')))) { toast('Míle a hodiny zapište jako číslo, např. 12,5.'); document.getElementsByName(f)[0].focus(); return; }
     if (state.legId) Object.assign(db.legs.find(x => x.id === state.legId), d);
     else db.legs.push({ id: uid(), voyageId: state.id, ...d });
@@ -670,12 +698,12 @@ document.addEventListener('click', async e => {
     return;
   }
   if (a === 'xlsx') {
-    if (!db.voyages.length) return toast('Deník je prázdný, není co exportovat.');
-    return saveFile(`lodni-denik-${todayIso()}.xlsx`, buildXlsx(db, todayIso()), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if (!db.voyages.length) return toast('Knížka je prázdná, není co exportovat.');
+    return saveFile(`jachtarska-knizka-${todayIso()}.xlsx`, buildXlsx(db, todayIso()), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   }
   if (a === 'backup') {
-    const data = JSON.stringify({ app: 'lodni-denik', version: 1, exported: new Date().toISOString(), voyages: db.voyages, legs: db.legs }, null, 1);
-    if (!await saveFile(`lodni-denik-zaloha-${todayIso()}.json`, new TextEncoder().encode(data), 'application/json')) return;
+    const data = JSON.stringify({ app: 'jachtarska-knizka', version: 1, exported: new Date().toISOString(), voyages: db.voyages, legs: db.legs }, null, 1);
+    if (!await saveFile(`jachtarska-knizka-zaloha-${todayIso()}.json`, new TextEncoder().encode(data), 'application/json')) return;
     db.meta.lastBackup = new Date().toISOString(); persist(); return render();
   }
   if (a === 'restore') return document.getElementById('importFile').click();
@@ -684,16 +712,25 @@ document.addEventListener('click', async e => {
 
 document.addEventListener('submit', e => e.preventDefault());
 
+// Změna data vyplutí posune i datum připlutí (zachová délku etapy ve dnech).
+document.addEventListener('change', e => {
+  if (e.target.id !== 'l_date' || !e.target.value) return;
+  const dep = e.target, arr = document.getElementById('l_arrDate'), old = dep.dataset.prev;
+  const span = old && arr.value >= old ? Math.round((isoDay(arr.value) - isoDay(old)) / 864e5) : 0;
+  arr.value = addDays(dep.value, span); dep.dataset.prev = dep.value;
+});
+
 document.getElementById('importFile').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
     const d = JSON.parse(await f.text());
     if (!d || !Array.isArray(d.voyages) || !Array.isArray(d.legs)) throw new Error('format');
+    d.voyages = d.voyages.filter(Boolean); migrate(d);
     const byId = (arr, items) => { const m = new Map(arr.map(x => [x.id, x])); items.forEach(x => x && x.id && m.set(x.id, x)); return [...m.values()]; };
     db.voyages = byId(db.voyages, d.voyages); db.legs = byId(db.legs, d.legs);
     persist(); state = { view: 'home' }; render();
     toast(`Načteno ze zálohy: ${d.voyages.length} ${pl(d.voyages.length, 'plavba', 'plavby', 'plaveb')}, ${d.legs.length} ${pl(d.legs.length, 'etapa', 'etapy', 'etap')}.`);
-  } catch (err) { toast('Tohle není záloha lodního deníku. Vyberte soubor lodni-denik-zaloha-….json.'); }
+  } catch (err) { toast('Tohle není záloha Jachtařské knížky. Vyberte soubor jachtarska-knizka-zaloha-….json (nebo starší lodni-denik-zaloha-….json).'); }
 });
 
 load();

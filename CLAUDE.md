@@ -1,6 +1,6 @@
-# Lodní deník – Námořní klub
+# Jachtařská knížka – Námořní klub
 
-Digitální lodní deník pro jachtaře, členy Námořního klubu (IFP Publishing / Krása jachtingu).
+Jachtařská knížka (dříve „Lodní deník“) – digitální záznam plaveb a praxe pro jachtaře, členy Námořního klubu (IFP Publishing / Krása jachtingu).
 Webová aplikace (PWA): instaluje se z webu na plochu telefonu, funguje offline, exportuje do Excelu.
 Vlastník projektu: Jarda Foršt (IFP). Komunikace a celé uživatelské rozhraní je česky.
 
@@ -27,9 +27,11 @@ Vlastník projektu: Jarda Foršt (IFP). Komunikace a celé uživatelské rozhran
 ## Data
 
 - Ukládají se v `localStorage` pod klíčem `ifp-lodni-denik-v1` jako `{voyages, legs, meta}`.
-  Formát neměnit bez migrace – uživatelé mají data jen v telefonu.
+  Klíč ani formát neměnit bez migrace – uživatelé mají data jen v telefonu (klíč zůstává z doby „Lodního deníku“).
 - Plavba (voyage): name, boat, boatType, length, area, kind, skipper, crew, role, from, to, notes, sample.
-- Etapa (leg): voyageId, date, dep, arr, from, to, nm, motorH, nightH, windDir, bft, sea, pos, notes.
+  Funkce (role): Kapitán, První důstojník, Posádka, Kurzant. Hodnoty z verze 1 převádí `migrate()` při načtení i obnově zálohy.
+- Etapa (leg): voyageId, date (datum vyplutí), arrDate (datum připlutí; u etap z verze 1 chybí = stejný den), dep, arr, from, to, nm, motorH, nightH, windDir, bft, sea, pos, notes.
+  Etapa může trvat přes půlnoc i více dní; používat `legEnd()`, `legDays()`, `legHours()`.
   Čísla se ukládají jako text (česká desetinná čárka), převádí je funkce `n()`.
 - Záloha = JSON soubor; obnova slučuje podle `id`.
 
