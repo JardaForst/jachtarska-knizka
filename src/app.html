@@ -65,6 +65,15 @@ main{padding-block:20px 8px}
 .chip{display:inline-block;font:600 .68rem/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;padding:4px 6px 3px;border-radius:3px;border:1px solid currentColor;color:var(--sea);vertical-align:2px;margin-left:6px}
 .chip.cap{color:var(--signal)}
 .chip.demo{color:var(--warn)}
+.chip.sum{color:var(--muted)}
+
+/* volba způsobu zápisu */
+.choices{display:grid;gap:12px}
+.choice{display:grid;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--sea);border-radius:6px;padding:18px 16px;cursor:pointer}
+.choice:hover{background:var(--sea-soft)}
+.choice:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.choice b{font:600 1.35rem/1.15 var(--f-display);letter-spacing:.01em}
+.choice i{font-style:normal;color:var(--muted);font-size:.9rem}
 
 /* leg rows */
 .leg{display:grid;grid-template-columns:5.2rem 1fr auto;gap:2px 14px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:12px 16px;cursor:pointer}
@@ -269,30 +278,54 @@ function legHours(l) {
   return ms >= 0 ? r1(ms / 36e5) : null;
 }
 
+// Plavba se zapisuje dvěma způsoby: po etapách (výchozí, mode chybí) nebo jedním souhrnným zápisem
+// (mode 'summary': čísla jsou přímo v plavbě – sumNm, sumSailNm, sumDays, sumNightH, sumMotorH, sumBft, route).
+const isSummary = v => !!v && v.mode === 'summary';
+const daysBetween = (a, b) => a && b && b >= a ? Math.round((isoDay(b) - isoDay(a)) / 864e5) + 1 : 0;
+
 function voyageStats(db, vid) {
+  const v = db.voyages.find(x => x.id === vid);
+  if (isSummary(v)) return {
+    legs: [], count: 0, summary: true,
+    days: Math.round(n(v.sumDays)), nm: r1(n(v.sumNm)), sail: r1(n(v.sumSailNm)),
+    night: r1(n(v.sumNightH)), motor: r1(n(v.sumMotorH)),
+    maxBft: v.sumBft !== '' && v.sumBft != null ? +v.sumBft : -1,
+    first: v.from || '', last: v.to || v.from || ''
+  };
   const legs = db.legs.filter(l => l.voyageId === vid).sort((a, b) => (a.date + (a.dep || '')).localeCompare(b.date + (b.dep || '')));
   const days = new Set(legs.filter(l => n(l.nm) > 0).flatMap(legDays));
   const dates = legs.flatMap(l => [l.date, legEnd(l)]).filter(Boolean).sort();
   return {
-    legs, count: legs.length, days: days.size,
+    legs, count: legs.length, summary: false, days: days.size,
     nm: r1(legs.reduce((s, l) => s + n(l.nm), 0)),
+    sail: r1(legs.reduce((s, l) => s + n(l.sailNm), 0)),
     night: r1(legs.reduce((s, l) => s + n(l.nightH), 0)),
     motor: r1(legs.reduce((s, l) => s + n(l.motorH), 0)),
     maxBft: legs.reduce((m, l) => l.bft !== '' && l.bft != null ? Math.max(m, +l.bft) : m, -1),
     first: dates[0] || '', last: dates[dates.length - 1] || ''
   };
 }
+// Souhrn z etap – použije se při přepnutí plavby z etap na jeden zápis.
+function summaryFromLegs(db, vid) {
+  const v = db.voyages.find(x => x.id === vid) || {};
+  const s = voyageStats(db, vid), f = x => x ? String(x).replace('.', ',') : '';
+  const stops = s.legs.flatMap(l => [l.from, l.to]).filter(Boolean).filter((p, i, a) => p !== a[i - 1]);
+  return {
+    mode: 'summary', from: v.from || s.first, to: v.to || s.last, sumNm: f(s.nm), sumSailNm: f(s.sail), sumDays: s.days ? String(s.days) : '',
+    sumNightH: f(s.night), sumMotorH: f(s.motor), sumBft: s.maxBft >= 0 ? String(s.maxBft) : '', route: stops.join(' – ')
+  };
+}
 function totals(db) {
-  const t = { nm: 0, days: 0, voyages: 0, capNm: 0, night: 0, motor: 0, byRole: {} };
+  const t = { nm: 0, sail: 0, days: 0, voyages: 0, capNm: 0, night: 0, motor: 0, byRole: {} };
   for (const v of db.voyages) {
     const s = voyageStats(db, v.id);
-    t.voyages++; t.nm += s.nm; t.days += s.days; t.night += s.night; t.motor += s.motor;
+    t.voyages++; t.nm += s.nm; t.sail += s.sail; t.days += s.days; t.night += s.night; t.motor += s.motor;
     if (v.role === 'Kapitán') t.capNm += s.nm;
     const r = v.role || 'Neuvedeno';
     t.byRole[r] = t.byRole[r] || { voyages: 0, nm: 0, days: 0 };
     t.byRole[r].voyages++; t.byRole[r].nm += s.nm; t.byRole[r].days += s.days;
   }
-  t.nm = r1(t.nm); t.capNm = r1(t.capNm); t.night = r1(t.night); t.motor = r1(t.motor);
+  for (const k of ['nm', 'sail', 'capNm', 'night', 'motor']) t[k] = r1(t[k]);
   return t;
 }
 
@@ -301,6 +334,7 @@ function buildXlsx(db, today) {
     .sort((a, b) => (a.v.from || a.s.first).localeCompare(b.v.from || b.s.first));
   const t = totals(db);
   const H = a => a.map(x => ({ v: x, s: 1 }));
+  const opt1 = (x, s = 3) => x !== '' && x != null ? { v: n(x), s } : '';
 
   const prehled = [
     [{ v: 'Jachtařská knížka – přehled praxe', s: 6 }],
@@ -308,6 +342,7 @@ function buildXlsx(db, today) {
     [],
     H(['Ukazatel', 'Hodnota']),
     ['Uplutí celkem (NM)', { v: t.nm, s: 3 }],
+    ['Z toho pod plachtami (NM)', { v: t.sail, s: 3 }],
     ['Dní na moři', t.days],
     ['Počet plaveb', t.voyages],
     ['NM jako kapitán', { v: t.capNm, s: 3 }],
@@ -318,31 +353,48 @@ function buildXlsx(db, today) {
     ...Object.entries(t.byRole).map(([r, x]) => [r, x.voyages, x.days, { v: r1(x.nm), s: 3 }])
   ];
 
-  const plavbyHead = ['Plavba', 'Loď', 'Typ lodi', 'Délka (m)', 'Revír', 'Typ plavby', 'Kapitán', 'Posádka', 'Moje funkce', 'Od', 'Do', 'Etap', 'Dní na moři', 'NM', 'Noční plavba (h)', 'Motor (h)', 'Max. Bft', 'Poznámka'];
-  const plavby = [H(plavbyHead), ...vs.map(({ v, s }) => [
-    v.name, v.boat, v.boatType, v.length ? n(v.length) : '', v.area, v.kind, v.skipper, v.crew, v.role,
-    { v: v.from || s.first, date: true }, { v: v.to || s.last, date: true },
-    s.count, s.days, { v: s.nm, s: 3 }, { v: s.night, s: 3 }, { v: s.motor, s: 3 }, s.maxBft >= 0 ? s.maxBft : '', { v: v.notes || '', s: 7 }
-  ])];
+  // [nadpis, šířka, hodnota(v, s), součet v řádku Celkem]
+  const cols = [
+    ['Plavba', 26, ({ v }) => v.name],
+    ['Způsob zápisu', 13, ({ s }) => s.summary ? 'Souhrn' : 'Etapy'],
+    ['Loď', 16, ({ v }) => v.boat],
+    ['Typ lodi', 20, ({ v }) => v.boatType],
+    ['Délka (m)', 9, ({ v }) => v.length ? n(v.length) : ''],
+    ['Revír', 22, ({ v }) => v.area],
+    ['Trasa', 34, ({ v, s }) => s.summary ? { v: v.route || '', s: 7 } : ''],
+    ['Typ plavby', 14, ({ v }) => v.kind],
+    ['Kapitán', 18, ({ v }) => v.skipper],
+    ['Posádka', 24, ({ v }) => v.crew],
+    ['Moje funkce', 15, ({ v }) => v.role],
+    ['Od', 11, ({ v, s }) => ({ v: v.from || s.first, date: true })],
+    ['Do', 11, ({ v, s }) => ({ v: v.to || s.last, date: true })],
+    ['Etap', 6, ({ s }) => s.summary ? '' : s.count, 4],
+    ['Dní na moři', 11, ({ s }) => s.days, 4],
+    ['NM', 9, ({ s }) => ({ v: s.nm, s: 3 }), 5],
+    ['Pod plachtami (NM)', 17, ({ s }) => ({ v: s.sail, s: 3 }), 5],
+    ['Noční plavba (h)', 14, ({ s }) => ({ v: s.night, s: 3 }), 5],
+    ['Motor (h)', 10, ({ s }) => ({ v: s.motor, s: 3 }), 5],
+    ['Max. Bft', 9, ({ s }) => s.maxBft >= 0 ? s.maxBft : ''],
+    ['Poznámka', 36, ({ v }) => ({ v: v.notes || '', s: 7 })]
+  ];
+  const plavby = [H(cols.map(c => c[0])), ...vs.map(x => cols.map(c => c[2](x)))];
   const last = plavby.length;
-  if (vs.length) {
-    const sum = (c, s, val) => ({ f: `SUM(${c}2:${c}${last})`, s, v: val });
-    plavby.push([{ v: 'Celkem', s: 4 }, '', '', '', '', '', '', '', '', '', '', sum('L', 4, vs.reduce((a, x) => a + x.s.count, 0)), sum('M', 4, t.days), sum('N', 5, t.nm), sum('O', 5, t.night), sum('P', 5, t.motor)]);
-  }
+  const num = c => { const x = c && typeof c === 'object' ? c.v : c; return typeof x === 'number' ? x : 0; };
+  if (vs.length) plavby.push(cols.map(([, , , sum], i) => i === 0 ? { v: 'Celkem', s: 4 }
+    : sum ? { f: `SUM(${XLSX.col(i)}2:${XLSX.col(i)}${last})`, s: sum, v: r1(plavby.slice(1).reduce((a, r) => a + num(r[i]), 0)) } : ''));
 
-  const etapyHead = ['Plavba', 'Loď', 'Datum vyplutí', 'Čas vyplutí', 'Datum připlutí', 'Čas připlutí', 'Odkud', 'Kam', 'Doba plavby (h)', 'NM', 'Motor (h)', 'Noční plavba (h)', 'Vítr – směr', 'Vítr – Bft', 'Stav moře', 'Poloha', 'Poznámka'];
+  const etapyHead = ['Plavba', 'Loď', 'Datum vyplutí', 'Čas vyplutí', 'Datum připlutí', 'Čas připlutí', 'Odkud', 'Kam', 'Doba plavby (h)', 'NM', 'Pod plachtami (NM)', 'Motor (h)', 'Noční plavba (h)', 'Vítr – směr', 'Vítr – Bft', 'Stav moře', 'Poloha', 'Poznámka'];
   const etapy = [H(etapyHead)];
   for (const { v, s } of vs) for (const l of s.legs) etapy.push([
     v.name, v.boat, { v: l.date, date: true }, l.dep, { v: legEnd(l), date: true }, l.arr, l.from, l.to,
-    legHours(l) !== null ? { v: legHours(l), s: 3 } : '', { v: n(l.nm), s: 3 },
-    l.motorH !== '' && l.motorH != null ? { v: n(l.motorH), s: 3 } : '', l.nightH !== '' && l.nightH != null ? { v: n(l.nightH), s: 3 } : '',
+    legHours(l) !== null ? { v: legHours(l), s: 3 } : '', { v: n(l.nm), s: 3 }, opt1(l.sailNm), opt1(l.motorH), opt1(l.nightH),
     l.windDir, l.bft !== '' && l.bft != null ? +l.bft : '', l.sea !== '' && l.sea != null ? `${l.sea} – ${SEA[+l.sea]}` : '', l.pos, { v: l.notes || '', s: 7 }
   ]);
 
   return XLSX.workbook([
     { name: 'Přehled', rows: prehled, opts: { widths: [26, 14, 14, 12] } },
-    { name: 'Plavby', rows: plavby, opts: { freeze: true, widths: [26, 16, 20, 9, 22, 14, 18, 24, 14, 11, 11, 6, 11, 9, 14, 10, 9, 36], filter: `A1:${XLSX.col(plavbyHead.length - 1)}${last}` } },
-    { name: 'Etapy', rows: etapy, opts: { freeze: true, widths: [24, 16, 13, 11, 13, 11, 18, 18, 14, 8, 10, 14, 11, 10, 20, 26, 40], filter: `A1:${XLSX.col(etapyHead.length - 1)}${etapy.length}` } }
+    { name: 'Plavby', rows: plavby, opts: { freeze: true, widths: cols.map(c => c[1]), filter: `A1:${XLSX.col(cols.length - 1)}${last}` } },
+    { name: 'Etapy', rows: etapy, opts: { freeze: true, widths: [24, 16, 13, 11, 13, 11, 18, 18, 14, 8, 17, 10, 14, 11, 10, 20, 26, 40], filter: `A1:${XLSX.col(etapyHead.length - 1)}${etapy.length}` } }
   ]);
 }
 
@@ -438,16 +490,16 @@ function viewHome() {
     <div><b>${t.voyages}</b><span>${pl(t.voyages, 'Plavba', 'Plavby', 'Plaveb')}</span></div>
     <div><b>${fmt(t.capNm)}</b><span>NM jako kapitán</span></div>
   </div>
-  <p class="subline">Noční plavba ${fmt(t.night)} h · motor ${fmt(t.motor)} h</p>
+  <p class="subline">Pod plachtami ${fmt(t.sail)} NM · noční plavba ${fmt(t.night)} h · motor ${fmt(t.motor)} h</p>
 
   <p class="eyebrow">Plavby</p>
   ${list.length ? `<ul class="ruled">${list.map(({ v, s }) => `
     <li><button class="row" data-a="open" data-id="${h(v.id)}">
-      <span class="t">${h(v.name)}${v.sample ? '<span class="chip demo">Ukázka</span>' : ''}${v.role ? `<span class="chip${v.role === 'Kapitán' ? ' cap' : ''}">${h(v.role)}</span>` : ''}</span>
+      <span class="t">${h(v.name)}${v.sample ? '<span class="chip demo">Ukázka</span>' : ''}${s.summary ? '<span class="chip sum">Souhrn</span>' : ''}${v.role ? `<span class="chip${v.role === 'Kapitán' ? ' cap' : ''}">${h(v.role)}</span>` : ''}</span>
       <span class="m"><span class="num">${range(v, s)}</span>${v.boat || v.area ? ' · ' : ''}${h([v.boat, v.area].filter(Boolean).join(' · '))}</span>
       <span class="r"><b>${fmt(s.nm)}</b><span>NM · ${s.days} ${pl(s.days, 'den', 'dny', 'dní')}</span></span>
     </button></li>`).join('')}</ul>`
-      : `<div class="empty"><strong>Knížka je prázdná</strong>Založte první plavbu tlačítkem dole. Pak k ní přidávejte jednotlivé dny – odkud, kam, kolik mil a jaký foukal vítr.</div>`}
+      : `<div class="empty"><strong>Knížka je prázdná</strong>Založte první plavbu tlačítkem dole. Zapíšete ji buď celou najednou, nebo po jednotlivých dnech – odkud, kam, kolik mil a jaký foukal vítr.</div>`}
 
   <p class="eyebrow">Export a záloha</p>
   <div class="tools">
@@ -488,39 +540,83 @@ function viewVoyage(v) {
     <div><b>${s.maxBft >= 0 ? s.maxBft : '–'}</b><span>Max. Bft</span></div>
   </div>
 
+  ${s.summary ? `
+  <p class="eyebrow">Souhrn plavby</p>
+  <section class="vhead">
+    <dl style="margin:0">
+      <div style="grid-column:1/-1"><dt>Trasa</dt><dd>${v.route ? h(v.route) : '–'}</dd></div>
+      <div><dt>Pod plachtami</dt><dd class="num">${fmt(s.sail)} NM</dd></div>
+      <div><dt>Motor</dt><dd class="num">${fmt(s.motor)} h</dd></div>
+    </dl>
+  </section>` : `
   <p class="eyebrow">Etapy</p>
   ${lastLegs.length ? `<ul class="ruled">${lastLegs.map(l => `
     <li><button class="leg" data-a="editLeg" data-id="${h(l.id)}">
       <span class="d">${wd(l.date)}<b>${fd(l.date, false)}</b>${legEnd(l) !== l.date ? `<b>– ${fd(legEnd(l), false)}</b>` : ''}</span>
       <span style="min-width:0">
         <span class="route">${h(l.from || '?')} → ${h(l.to || '?')}</span>
-        <span class="wx">${[l.dep && l.arr ? `<span class="num">${h(l.dep)}–${h(l.arr)}</span>` : '', legEnd(l) !== l.date && legHours(l) !== null ? `<span class="num">${fmt(legHours(l))} h</span> na moři` : '', l.windDir || l.bft !== '' && l.bft != null ? `vítr ${h(l.windDir || '')} ${l.bft !== '' && l.bft != null ? h(l.bft) + ' Bft' : ''}` : '', n(l.nightH) ? `noc ${fmt(n(l.nightH))} h` : ''].filter(Boolean).join(' · ')}</span>
+        <span class="wx">${[l.dep && l.arr ? `<span class="num">${h(l.dep)}–${h(l.arr)}</span>` : '', legEnd(l) !== l.date && legHours(l) !== null ? `<span class="num">${fmt(legHours(l))} h</span> na moři` : '', l.windDir || l.bft !== '' && l.bft != null ? `vítr ${h(l.windDir || '')} ${l.bft !== '' && l.bft != null ? h(l.bft) + ' Bft' : ''}` : '', n(l.nightH) ? `noc ${fmt(n(l.nightH))} h` : '', n(l.sailNm) ? `plachty ${fmt(n(l.sailNm))} NM` : ''].filter(Boolean).join(' · ')}</span>
         ${l.notes ? `<span class="wx" style="display:block">${h(l.notes)}</span>` : ''}
       </span>
       <span class="nm">${fmt(n(l.nm))}<small>NM</small></span>
     </button></li>`).join('')}</ul>`
-      : `<div class="empty"><strong>Zatím žádná etapa</strong>Každý den plavby zapište jako jednu etapu. Přidáte ji tlačítkem dole.</div>`}
+      : `<div class="empty"><strong>Zatím žádná etapa</strong>Každý den plavby zapište jako jednu etapu. Přidáte ji tlačítkem dole.</div>`}`}
   ${v.notes ? `<p class="eyebrow">Poznámka</p><p style="margin:0;white-space:pre-wrap">${h(v.notes)}</p>` : ''}
 
   <p class="eyebrow">Plavba</p>
-  ${confirmKey === k ? `<div class="confirm"><span>Smazat plavbu i ${s.count} ${pl(s.count, 'etapu', 'etapy', 'etap')}?</span><button class="btn small danger" data-a="delVoyage" data-id="${h(v.id)}" data-now="1">Smazat</button><button class="btn small" data-a="cancel">Ponechat</button></div>`
-      : `<div class="actions"><button class="btn small" data-a="editVoyage" data-id="${h(v.id)}">Upravit plavbu</button><button class="btn small danger" data-a="delVoyage" data-id="${h(v.id)}">Smazat plavbu</button></div>`}`;
+  ${confirmKey === k ? `<div class="confirm"><span>${s.count ? `Smazat plavbu i ${s.count} ${pl(s.count, 'etapu', 'etapy', 'etap')}?` : 'Smazat plavbu?'}</span><button class="btn small danger" data-a="delVoyage" data-id="${h(v.id)}" data-now="1">Smazat</button><button class="btn small" data-a="cancel">Ponechat</button></div>`
+    : confirmKey === 'm' + v.id ? `<div class="confirm"><span>${s.summary
+      ? 'Přepnout na zápis po etapách? Souhrnná čísla a trasa se smažou a plavbu budete plnit etapami.'
+      : s.count ? `Přepnout na jeden zápis? Souhrn se předvyplní z etap a ${s.count} ${pl(s.count, 'etapa', 'etapy', 'etap')} se smaže.` : 'Přepnout na jeden zápis? Souhrn pak vyplníte v úpravě plavby.'}</span>
+      <button class="btn small danger" data-a="switchMode" data-id="${h(v.id)}" data-now="1">Přepnout</button><button class="btn small" data-a="cancel">Ponechat</button></div>`
+    : `<div class="actions"><button class="btn small" data-a="editVoyage" data-id="${h(v.id)}">Upravit plavbu</button><button class="btn small" data-a="switchMode" data-id="${h(v.id)}">${s.summary ? 'Zapisovat po etapách' : 'Zapsat jedním zápisem'}</button><button class="btn small danger" data-a="delVoyage" data-id="${h(v.id)}">Smazat plavbu</button></div>`}`;
+}
+
+function viewVoyageNew() {
+  return `
+  <p class="eyebrow">Jak chcete plavbu zapsat?</p>
+  <div class="choices">
+    <button class="choice" data-a="pickMode" data-mode="summary">
+      <b>Celá plavba jedním zápisem</b>
+      <span>Po plavbě zapíšete souhrn: kdy, kudy, kolik mil a dní na moři. Hodí se pro chartery a starší plavby.</span>
+      <i>Např. „Kornati, 7 dní, 142 NM, kapitán“</i>
+    </button>
+    <button class="choice" data-a="pickMode" data-mode="legs">
+      <b>Po etapách</b>
+      <span>Každý den nebo úsek zapíšete zvlášť – přístavy, časy, vítr a události. Součty se spočítají samy.</span>
+      <i>Jako klasický lodní deník</i>
+    </button>
+  </div>
+  <p class="note">Způsob zápisu můžete později u plavby změnit.</p>`;
 }
 
 const opt = (val, label, cur) => `<option value="${h(val)}"${String(cur ?? '') === String(val) ? ' selected' : ''}>${h(label)}</option>`;
 
-function viewVoyageForm(v) {
-  v = v || { role: 'Kapitán', kind: 'Charter' };
+function viewVoyageForm(v, mode) {
+  v = v || { role: 'Kapitán', kind: 'Charter', mode };
+  const sum = isSummary(v);
+  const auto = daysBetween(v.from, v.to);
   return `
   <form id="fVoyage" novalidate>
+    <input type="hidden" name="mode" value="${sum ? 'summary' : ''}">
     <fieldset><legend>Plavba</legend>
       <div class="f"><label for="v_name">Název plavby</label><input id="v_name" name="name" required value="${h(v.name)}" placeholder="např. Kyklady – červen 2026"></div>
       <div class="f h"><label for="v_area">Revír</label><input id="v_area" name="area" value="${h(v.area)}" placeholder="Řecko – Kyklady"></div>
       <div class="f h"><label for="v_kind">Typ plavby</label><select id="v_kind" name="kind">${opt('', '—', v.kind)}${KINDS.map(x => opt(x, x, v.kind)).join('')}</select></div>
-      <div class="f h"><label for="v_from">Od <i>(nepovinné)</i></label><input id="v_from" name="from" type="date" value="${h(v.from)}"></div>
-      <div class="f h"><label for="v_to">Do <i>(nepovinné)</i></label><input id="v_to" name="to" type="date" value="${h(v.to)}"></div>
-      <p class="hint f">Data nemusíte vyplňovat, doplní se z etap.</p>
+      <div class="f h"><label for="v_from">Od${sum ? '' : ' <i>(nepovinné)</i>'}</label><input id="v_from" name="from" type="date" value="${h(v.from)}"></div>
+      <div class="f h"><label for="v_to">Do${sum ? '' : ' <i>(nepovinné)</i>'}</label><input id="v_to" name="to" type="date" value="${h(v.to)}"></div>
+      ${sum ? '' : '<p class="hint f">Data nemusíte vyplňovat, doplní se z etap.</p>'}
     </fieldset>
+    ${sum ? `<fieldset><legend>Souhrn plavby</legend>
+      <div class="f"><label for="v_route">Trasa <i>(nepovinné)</i></label><input id="v_route" name="route" value="${h(v.route)}" placeholder="Biograd – Žut – Skradin – Primošten – Biograd"></div>
+      <div class="f h"><label for="v_nm">Uplutí celkem (NM)</label><input id="v_nm" name="sumNm" inputmode="decimal" value="${h(v.sumNm)}" placeholder="0"></div>
+      <div class="f h"><label for="v_sail">Z toho pod plachtami (NM)</label><input id="v_sail" name="sumSailNm" inputmode="decimal" value="${h(v.sumSailNm)}"></div>
+      <div class="f t"><label for="v_days">Dní na moři</label><input id="v_days" name="sumDays" inputmode="numeric" value="${h(v.sumDays)}" data-auto="${String(auto) === String(v.sumDays ?? '') ? auto : ''}"></div>
+      <div class="f t"><label for="v_night">Noční plavba (h)</label><input id="v_night" name="sumNightH" inputmode="decimal" value="${h(v.sumNightH)}"></div>
+      <div class="f t last"><label for="v_mot">Motor (h)</label><input id="v_mot" name="sumMotorH" inputmode="decimal" value="${h(v.sumMotorH)}"></div>
+      <div class="f h"><label for="v_bft">Nejsilnější vítr (Bft)</label><select id="v_bft" name="sumBft">${opt('', '—', v.sumBft)}${BFT.map((x, i) => opt(i, `${i} – ${x}`, v.sumBft)).join('')}</select></div>
+      <p class="hint f">Dní na moři se předvyplní podle dat Od–Do. Dny strávené celé v přístavu odečtěte.</p>
+    </fieldset>` : ''}
     <fieldset><legend>Loď</legend>
       <div class="f t"><label for="v_boat">Jméno lodi</label><input id="v_boat" name="boat" value="${h(v.boat)}"></div>
       <div class="f t"><label for="v_type">Typ lodi</label><input id="v_type" name="boatType" value="${h(v.boatType)}" placeholder="Bavaria 46"></div>
@@ -559,9 +655,10 @@ function viewLegForm(v, l) {
       <datalist id="ports">${ports().map(p => `<option value="${h(p)}">`).join('')}</datalist>
     </fieldset>
     <fieldset><legend>Míle a hodiny</legend>
-      <div class="f t"><label for="l_nm">Uplutí (NM)</label><input id="l_nm" name="nm" inputmode="decimal" value="${h(l.nm)}" placeholder="0"></div>
-      <div class="f t"><label for="l_mot">Motor (h)</label><input id="l_mot" name="motorH" inputmode="decimal" value="${h(l.motorH)}"></div>
-      <div class="f t last"><label for="l_night">Noční plavba (h)</label><input id="l_night" name="nightH" inputmode="decimal" value="${h(l.nightH)}"></div>
+      <div class="f h"><label for="l_nm">Uplutí (NM)</label><input id="l_nm" name="nm" inputmode="decimal" value="${h(l.nm)}" placeholder="0"></div>
+      <div class="f h"><label for="l_sail">Z toho pod plachtami (NM)</label><input id="l_sail" name="sailNm" inputmode="decimal" value="${h(l.sailNm)}"></div>
+      <div class="f h"><label for="l_mot">Motor (h)</label><input id="l_mot" name="motorH" inputmode="decimal" value="${h(l.motorH)}"></div>
+      <div class="f h"><label for="l_night">Noční plavba (h)</label><input id="l_night" name="nightH" inputmode="decimal" value="${h(l.nightH)}"></div>
     </fieldset>
     <fieldset><legend>Počasí</legend>
       <div class="f t"><label for="l_dir">Vítr – směr</label><select id="l_dir" name="windDir">${opt('', '—', l.windDir)}${DIRS.map(x => opt(x, x, l.windDir)).join('')}</select></div>
@@ -583,19 +680,25 @@ function render() {
   const B = document.getElementById('bar'), V = document.getElementById('view'), D = document.getElementById('dock');
   const v = state.id ? db.voyages.find(x => x.id === state.id) : null;
   // záznam mezitím smazaný (např. tlačítko vpřed v prohlížeči) → zpět na úvod
-  if (state.view !== 'home' && (state.id ? !v : state.view !== 'voyageForm')) state = { view: 'home' };
-  if (state.view === 'legForm' && state.legId && !db.legs.some(x => x.id === state.legId)) state = { view: 'voyage', id: state.id };
+  if (state.view !== 'home' && (state.id ? !v : !['voyageForm', 'voyageNew'].includes(state.view))) state = { view: 'home' };
+  if (state.view === 'legForm' && (isSummary(v) || state.legId && !db.legs.some(x => x.id === state.legId))) state = { view: 'voyage', id: state.id };
   if (state.view === 'home') {
     B.innerHTML = bar('Jachtařská knížka', false, 'Námořní klub');
     V.innerHTML = viewHome();
     D.innerHTML = `<button class="btn primary" data-a="newVoyage">+ Nová plavba</button>`;
+  } else if (state.view === 'voyageNew') {
+    B.innerHTML = bar('Nová plavba', true);
+    V.innerHTML = viewVoyageNew();
+    D.innerHTML = `<button class="btn" data-a="back">Zrušit</button>`;
   } else if (state.view === 'voyage') {
     B.innerHTML = bar(v.name, true);
     V.innerHTML = viewVoyage(v);
-    D.innerHTML = `<button class="btn primary" data-a="newLeg">+ Přidat etapu</button>`;
+    D.innerHTML = isSummary(v)
+      ? `<button class="btn primary" data-a="editVoyage" data-id="${h(v.id)}">Upravit zápis</button>`
+      : `<button class="btn primary" data-a="newLeg">+ Přidat etapu</button>`;
   } else if (state.view === 'voyageForm') {
-    B.innerHTML = bar(v ? 'Upravit plavbu' : 'Nová plavba', true);
-    V.innerHTML = viewVoyageForm(v);
+    B.innerHTML = bar(v ? 'Upravit plavbu' : 'Nová plavba', true, !v && state.mode === 'summary' ? 'Jedním zápisem' : !v ? 'Po etapách' : '');
+    V.innerHTML = viewVoyageForm(v, state.mode);
     D.innerHTML = `<button class="btn" data-a="back">Zrušit</button><button class="btn primary" data-a="saveVoyage">Uložit</button>`;
   } else if (state.view === 'legForm') {
     const l = state.legId ? db.legs.find(x => x.id === state.legId) : null;
@@ -605,6 +708,7 @@ function render() {
   }
 }
 
+const badNum = (d, fields) => fields.find(f => d[f] && !isFinite(parseFloat(d[f].replace(',', '.'))));
 function formData(id) { const o = {}; new FormData(document.getElementById(id)).forEach((val, k) => { o[k] = String(val).trim(); }); return o; }
 function back() {
   if (history.state && history.state.view && history.length > 1) { try { history.back(); return; } catch (e) { } }
@@ -653,14 +757,26 @@ document.addEventListener('click', async e => {
   const a = el.dataset.a, id = el.dataset.id;
   if (a === 'back') return back();
   if (a === 'open') return go({ view: 'voyage', id });
-  if (a === 'newVoyage') return go({ view: 'voyageForm' });
+  if (a === 'newVoyage') return go({ view: 'voyageNew' });
+  if (a === 'pickMode') return replaceTo({ view: 'voyageForm', mode: el.dataset.mode === 'summary' ? 'summary' : '' });
   if (a === 'editVoyage') return go({ view: 'voyageForm', id });
   if (a === 'newLeg') return go({ view: 'legForm', id: state.id });
   if (a === 'editLeg') return go({ view: 'legForm', id: state.id, legId: id });
   if (a === 'cancel') { confirmKey = null; return render(); }
   if (a === 'saveVoyage') {
     const d = formData('fVoyage');
-    if (!d.name) { toast('Vyplňte název plavby.'); document.getElementById('v_name').focus(); return; }
+    const stop = (msg, field) => { toast(msg); document.getElementById(field).focus(); };
+    if (!d.name) return stop('Vyplňte název plavby.', 'v_name');
+    if (d.from && d.to && d.to < d.from) return stop('Datum Do nemůže být dřív než Od.', 'v_to');
+    if (d.mode === 'summary') {
+      if (!d.from) return stop('Vyplňte, od kdy plavba trvala.', 'v_from');
+      if (!d.to) return stop('Vyplňte, do kdy plavba trvala.', 'v_to');
+      if (!d.sumNm) return stop('Vyplňte, kolik mil jste celkem upluli.', 'v_nm');
+      const bad = badNum(d, ['sumNm', 'sumSailNm', 'sumDays', 'sumNightH', 'sumMotorH']);
+      if (bad) return stop('Míle, dny a hodiny zapište jako číslo, např. 12,5.', document.getElementsByName(bad)[0].id);
+      if (n(d.sumSailNm) > n(d.sumNm)) return stop('Pod plachtami nemůže být víc mil než celkem.', 'v_sail');
+      if (n(d.sumDays) > daysBetween(d.from, d.to)) return stop(`Plavba od–do má jen ${daysBetween(d.from, d.to)} ${pl(daysBetween(d.from, d.to), 'den', 'dny', 'dní')}.`, 'v_days');
+    } else delete d.mode;
     if (state.id) { const v = db.voyages.find(x => x.id === state.id); Object.assign(v, d); persist(); back(); }
     else { const v = { id: uid(), ...d }; db.voyages.push(v); persist(); replaceTo({ view: 'voyage', id: v.id }); }
     return toast('Plavba uložena');
@@ -671,7 +787,9 @@ document.addEventListener('click', async e => {
     if (!d.arrDate) d.arrDate = d.date;
     if (d.arrDate < d.date) { toast('Datum připlutí nemůže být dřív než datum vyplutí.'); document.getElementById('l_arrDate').focus(); return; }
     if (legHours(d) === null && d.dep && d.arr && d.arrDate === d.date) { toast('Připlutí je dřív než vyplutí. Pokud jste dopluli další den, změňte datum připlutí.'); document.getElementById('l_arrDate').focus(); return; }
-    for (const f of ['nm', 'motorH', 'nightH']) if (d[f] && !isFinite(parseFloat(d[f].replace(',', '.')))) { toast('Míle a hodiny zapište jako číslo, např. 12,5.'); document.getElementsByName(f)[0].focus(); return; }
+    const bad = badNum(d, ['nm', 'sailNm', 'motorH', 'nightH']);
+    if (bad) { toast('Míle a hodiny zapište jako číslo, např. 12,5.'); document.getElementsByName(bad)[0].focus(); return; }
+    if (n(d.sailNm) > n(d.nm)) { toast('Pod plachtami nemůže být víc mil než celkem.'); document.getElementById('l_sail').focus(); return; }
     if (state.legId) Object.assign(db.legs.find(x => x.id === state.legId), d);
     else db.legs.push({ id: uid(), voyageId: state.id, ...d });
     persist(); toast('Etapa uložena');
@@ -681,6 +799,18 @@ document.addEventListener('click', async e => {
     if (!el.dataset.now) { confirmKey = 'v' + id; return render(); }
     db.voyages = db.voyages.filter(v => v.id !== id); db.legs = db.legs.filter(l => l.voyageId !== id);
     persist(); toast('Plavba smazána'); return back();
+  }
+  if (a === 'switchMode') {
+    if (!el.dataset.now) { confirmKey = 'm' + id; return render(); }
+    const v = db.voyages.find(x => x.id === id);
+    if (isSummary(v)) {
+      for (const k of ['mode', 'sumNm', 'sumSailNm', 'sumDays', 'sumNightH', 'sumMotorH', 'sumBft', 'route']) delete v[k];
+      persist(); toast('Plavbu teď zapisujete po etapách'); confirmKey = null; return render();
+    }
+    Object.assign(v, summaryFromLegs(db, id));
+    db.legs = db.legs.filter(l => l.voyageId !== id);
+    persist(); toast('Zkontrolujte a doplňte souhrn plavby');
+    return go({ view: 'voyageForm', id });
   }
   if (a === 'delLeg') {
     if (!el.dataset.now) { confirmKey = 'l' + id; return render(); }
@@ -713,6 +843,13 @@ document.addEventListener('click', async e => {
 document.addEventListener('submit', e => e.preventDefault());
 
 // Změna data vyplutí posune i datum připlutí (zachová délku etapy ve dnech).
+// Souhrnný zápis: dny na moři se předvyplní z Od–Do, dokud je uživatel sám nepřepíše.
+document.addEventListener('change', e => {
+  if (e.target.id !== 'v_from' && e.target.id !== 'v_to') return;
+  const days = document.getElementById('v_days'); if (!days) return;
+  const auto = daysBetween(document.getElementById('v_from').value, document.getElementById('v_to').value) || '';
+  if (!days.value || days.value === days.dataset.auto) { days.value = auto; days.dataset.auto = auto; }
+});
 document.addEventListener('change', e => {
   if (e.target.id !== 'l_date' || !e.target.value) return;
   const dep = e.target, arr = document.getElementById('l_arrDate'), old = dep.dataset.prev;

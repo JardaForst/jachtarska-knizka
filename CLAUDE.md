@@ -30,7 +30,12 @@ Vlastník projektu: Jarda Foršt (IFP). Komunikace a celé uživatelské rozhran
   Klíč ani formát neměnit bez migrace – uživatelé mají data jen v telefonu (klíč zůstává z doby „Lodního deníku“).
 - Plavba (voyage): name, boat, boatType, length, area, kind, skipper, crew, role, from, to, notes, sample.
   Funkce (role): Kapitán, První důstojník, Posádka, Kurzant. Hodnoty z verze 1 převádí `migrate()` při načtení i obnově zálohy.
-- Etapa (leg): voyageId, date (datum vyplutí), arrDate (datum připlutí; u etap z verze 1 chybí = stejný den), dep, arr, from, to, nm, motorH, nightH, windDir, bft, sea, pos, notes.
+  Způsob zápisu se volí na první obrazovce nové plavby: `mode` chybí = po etapách (součty z etap),
+  `mode: 'summary'` = jedním zápisem, čísla jsou přímo v plavbě: sumNm, sumSailNm, sumDays, sumNightH,
+  sumMotorH, sumBft, route (from/to povinné). Souhrnné plavbě se etapy nepočítají. Všechny součty jdou
+  přes `voyageStats()`. Přepnutí: souhrn → etapy smaže souhrnná pole; etapy → souhrn předvyplní
+  `summaryFromLegs()` a etapy smaže (vždy po potvrzení uživatelem).
+- Etapa (leg): voyageId, date (datum vyplutí), arrDate (datum připlutí; u etap z verze 1 chybí = stejný den), dep, arr, from, to, nm, sailNm (z toho pod plachtami), motorH, nightH, windDir, bft, sea, pos, notes.
   Etapa může trvat přes půlnoc i více dní; používat `legEnd()`, `legDays()`, `legHours()`.
   Čísla se ukládají jako text (česká desetinná čárka), převádí je funkce `n()`.
 - Záloha = JSON soubor; obnova slučuje podle `id`.
