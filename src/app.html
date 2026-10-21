@@ -360,7 +360,7 @@ const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 const todayIso = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const WD = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
 function fd(iso, withYear = true) { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return withYear ? `${d}. ${m}. ${y}` : `${d}. ${m}.`; }
-function wd(iso) { const [y, m, d] = iso.split('-').map(Number); return WD[new Date(y, m - 1, d).getDay()]; }
+function wd(iso) { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return WD[new Date(y, m - 1, d).getDay()]; }
 const fmt = x => (Math.round(x * 10) / 10).toLocaleString('cs-CZ', { maximumFractionDigits: 1 });
 function pl(k, a, b, c) { return k === 1 ? a : (k >= 2 && k <= 4 ? b : c); }
 function range(v, s) {
@@ -557,7 +557,9 @@ function viewLegForm(v, l) {
 function render() {
   const B = document.getElementById('bar'), V = document.getElementById('view'), D = document.getElementById('dock');
   const v = state.id ? db.voyages.find(x => x.id === state.id) : null;
-  if (state.view !== 'home' && state.view !== 'voyageForm' && !v) state = { view: 'home' };
+  // záznam mezitím smazaný (např. tlačítko vpřed v prohlížeči) → zpět na úvod
+  if (state.view !== 'home' && (state.id ? !v : state.view !== 'voyageForm')) state = { view: 'home' };
+  if (state.view === 'legForm' && state.legId && !db.legs.some(x => x.id === state.legId)) state = { view: 'voyage', id: state.id };
   if (state.view === 'home') {
     B.innerHTML = bar('Lodní deník', false, 'Námořní klub');
     V.innerHTML = viewHome();
@@ -588,24 +590,25 @@ function back() {
 function replaceTo(s) { state = s; confirmKey = null; try { history.replaceState(s, ''); } catch (e) { } render(); window.scrollTo(0, 0); }
 
 // ---- soubory: v Claude přes "downloads", jinde stažení nebo sdílení ----
+// Vrací true, pokud se soubor uložil/odeslal; false, pokud to uživatel zrušil nebo selhalo.
 let downloads = null;
 const capReady = (async () => { try { if (window.claude && typeof window.claude.use === 'function') downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; } })();
 async function saveFile(name, bytes, mime) {
   await capReady;
   if (downloads) {
-    try { await downloads.save({ filename: name, data: new Blob([bytes], { type: mime }) }); toast('Uloženo: ' + name); }
-    catch (e) { if (!e || e.code !== 'declined') toast('Soubor se nepodařilo uložit.'); }
-    return;
+    try { await downloads.save({ filename: name, data: new Blob([bytes], { type: mime }) }); toast('Uloženo: ' + name); return true; }
+    catch (e) { if (!e || e.code !== 'declined') toast('Soubor se nepodařilo uložit.'); return false; }
   }
   const file = new File([bytes], name, { type: mime });
   const touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
   if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.share({ files: [file], title: name }); return true; } catch (e) { if (e && e.name === 'AbortError') return false; }
   }
   const url = URL.createObjectURL(file), a = document.createElement('a');
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   toast('Staženo: ' + name);
+  return true;
 }
 
 // ---- instalace (jen v nasazené verzi) ----
@@ -633,7 +636,7 @@ document.addEventListener('click', async e => {
   if (a === 'saveVoyage') {
     const d = formData('fVoyage');
     if (!d.name) { toast('Vyplňte název plavby.'); document.getElementById('v_name').focus(); return; }
-    if (state.id) { const v = db.voyages.find(x => x.id === state.id); Object.assign(v, d); persist(); replaceTo({ view: 'voyage', id: v.id }); }
+    if (state.id) { const v = db.voyages.find(x => x.id === state.id); Object.assign(v, d); persist(); back(); }
     else { const v = { id: uid(), ...d }; db.voyages.push(v); persist(); replaceTo({ view: 'voyage', id: v.id }); }
     return toast('Plavba uložena');
   }
@@ -649,7 +652,7 @@ document.addEventListener('click', async e => {
   if (a === 'delVoyage') {
     if (!el.dataset.now) { confirmKey = 'v' + id; return render(); }
     db.voyages = db.voyages.filter(v => v.id !== id); db.legs = db.legs.filter(l => l.voyageId !== id);
-    persist(); toast('Plavba smazána'); return replaceTo({ view: 'home' });
+    persist(); toast('Plavba smazána'); return back();
   }
   if (a === 'delLeg') {
     if (!el.dataset.now) { confirmKey = 'l' + id; return render(); }
@@ -672,7 +675,7 @@ document.addEventListener('click', async e => {
   }
   if (a === 'backup') {
     const data = JSON.stringify({ app: 'lodni-denik', version: 1, exported: new Date().toISOString(), voyages: db.voyages, legs: db.legs }, null, 1);
-    await saveFile(`lodni-denik-zaloha-${todayIso()}.json`, new TextEncoder().encode(data), 'application/json');
+    if (!await saveFile(`lodni-denik-zaloha-${todayIso()}.json`, new TextEncoder().encode(data), 'application/json')) return;
     db.meta.lastBackup = new Date().toISOString(); persist(); return render();
   }
   if (a === 'restore') return document.getElementById('importFile').click();

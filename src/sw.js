@@ -1,5 +1,5 @@
 // Lodní deník – offline režim. Při změně aplikace zvyšte číslo verze.
-const VERSION = 'denik-v1';
+const VERSION = 'denik-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -32,7 +32,9 @@ self.addEventListener('fetch', e => {
   // Stránka: nejdřív síť (kvůli aktualizacím), bez signálu uložená verze
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).then(r => {
-      const copy = r.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return r;
+      // ukládat jen skutečnou stránku aplikace, ne chybové stránky (404 apod.)
+      if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); }
+      return r;
     }).catch(() => caches.match('./index.html')));
     return;
   }
