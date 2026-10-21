@@ -1,5 +1,5 @@
 # Zkušební verze na GitHub Pages: po každém pushi do main otestuje export,
-# sestaví aplikaci (node build.mjs) a nasadí dist/lodni-denik.
+# sestaví aplikaci (node build.mjs) a nasadí dist/jachtarska-knizka.
 name: Zkušební verze (GitHub Pages)
 
 on:
@@ -28,7 +28,7 @@ jobs:
       - run: node tools/test-export.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist/lodni-denik
+          path: dist/jachtarska-knizka
 
   deploy:
     needs: build

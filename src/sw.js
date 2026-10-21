@@ -1,5 +1,5 @@
 // Jachtařská knížka – offline režim. Při změně aplikace zvyšte číslo verze.
-const VERSION = 'denik-v3';
+const VERSION = 'denik-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

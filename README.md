@@ -10,7 +10,7 @@ Potřebujete jen [Node.js](https://nodejs.org) (verze LTS).
 node build.mjs
 ```
 
-Výsledek je ve složce `dist/lodni-denik`. Tu nahrajte na web (návod je v `JAK-NAINSTALOVAT.txt`).
+Výsledek je ve složce `dist/jachtarska-knizka`. Tu nahrajte na web (návod je v `JAK-NAINSTALOVAT.txt`).
 
 ## Test exportu
 

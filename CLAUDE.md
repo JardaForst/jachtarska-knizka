@@ -12,17 +12,17 @@ Vlastník projektu: Jarda Foršt (IFP). Komunikace a celé uživatelské rozhran
     (ZIP + SpreadsheetML), výpočty souhrnů, ukázková data. Testuje ho `tools/test-export.mjs`.
 - `src/sw.js` – service worker (offline). **Při každé změně aplikace zvýšit `VERSION`.**
 - `src/manifest.webmanifest`, `src/icons/` – instalace na plochu.
-- `build.mjs` – sestaví `dist/lodni-denik/` (nahrát na web přes FTP) a `dist/nahled.html`.
+- `build.mjs` – sestaví `dist/jachtarska-knizka/` (nahrát na web přes FTP) a `dist/nahled.html`.
 - `dist/` se necommituje.
-- Repozitář je veřejný: https://github.com/JardaForst/lodni-denik. Push do `main` spustí
-  `.github/workflows/pages.yml` a nasadí zkušební verzi na https://jardaforst.github.io/lodni-denik/.
+- Repozitář je veřejný: https://github.com/JardaForst/jachtarska-knizka. Push do `main` spustí
+  `.github/workflows/pages.yml` a nasadí zkušební verzi na https://jardaforst.github.io/jachtarska-knizka/.
   Do commitů nepsat osobní údaje; autor commitů používá noreply e-mail GitHubu.
 
 ## Příkazy
 
 - `node build.mjs` – sestavení
 - `node tools/test-export.mjs` – test exportu a souhrnů
-- Lokální zkouška: `npx serve dist/lodni-denik` nebo `python -m http.server -d dist/lodni-denik`
+- Lokální zkouška: `npx serve dist/jachtarska-knizka` nebo `python -m http.server -d dist/jachtarska-knizka`
 
 ## Data
 

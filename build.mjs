@@ -1,9 +1,9 @@
-// Sestaví instalovatelnou aplikaci do dist/lodni-denik a náhled pro claude.ai do dist/nahled.html.
+// Sestaví instalovatelnou aplikaci do dist/jachtarska-knizka a náhled pro claude.ai do dist/nahled.html.
 // Spuštění: node build.mjs   (stačí Node.js 18+, žádné balíčky)
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SRC = 'src', OUT = join('dist', 'lodni-denik');
+const SRC = 'src', OUT = join('dist', 'jachtarska-knizka');
 rmSync('dist', { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
@@ -24,7 +24,7 @@ const pwaHead = `<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jachtařská knížka">
+<meta name="apple-mobile-web-app-title" content="Jacht-knížka">
 `;
 const pwaTail = `
 <script>
@@ -43,4 +43,4 @@ for (const f of readdirSync(join(SRC, 'icons'))) copyFileSync(join(SRC, 'icons',
 // Náhled pro claude.ai (Artifact) = app.html beze změny
 copyFileSync(join(SRC, 'app.html'), join('dist', 'nahled.html'));
 
-console.log('Hotovo: dist/lodni-denik (nahrát na web) a dist/nahled.html (náhled v Claude)');
+console.log('Hotovo: dist/jachtarska-knizka (nahrát na web) a dist/nahled.html (náhled v Claude)');
