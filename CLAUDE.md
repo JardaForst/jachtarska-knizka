@@ -14,6 +14,9 @@ Vlastník projektu: Jarda Foršt (IFP). Komunikace a celé uživatelské rozhran
 - `src/manifest.webmanifest`, `src/icons/` – instalace na plochu.
 - `build.mjs` – sestaví `dist/lodni-denik/` (nahrát na web přes FTP) a `dist/nahled.html`.
 - `dist/` se necommituje.
+- Repozitář je veřejný: https://github.com/JardaForst/lodni-denik. Push do `main` spustí
+  `.github/workflows/pages.yml` a nasadí zkušební verzi na https://jardaforst.github.io/lodni-denik/.
+  Do commitů nepsat osobní údaje; autor commitů používá noreply e-mail GitHubu.
 
 ## Příkazy
 
