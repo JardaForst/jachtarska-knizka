@@ -1,0 +1,699 @@
+<title>Lodní deník</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: list z logbooku. Hlavička lodě, linkované řádky záznamů s tabulárními čísly, signální oranžová jen pro akce. */
+:root{
+  --bg:#EBF0F2; --surface:#FFFFFF; --ink:#102233; --muted:#52667A; --line:#C7D2D9;
+  --sea:#1D5C78; --sea-soft:#DAE6EC; --signal:#CF4318; --signal-ink:#FFFFFF; --warn:#9A5B00; --warn-soft:#FBEBD0;
+  --f-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#09131B; --surface:#102030; --ink:#E3EBF0; --muted:#8FA3B2; --line:#223A4C;
+  --sea:#6DB8D8; --sea-soft:#14303F; --signal:#FF6B3D; --signal-ink:#1A0A03; --warn:#F2B866; --warn-soft:#3A2A10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#09131B; --surface:#102030; --ink:#E3EBF0; --muted:#8FA3B2; --line:#223A4C;
+  --sea:#6DB8D8; --sea-soft:#14303F; --signal:#FF6B3D; --signal-ink:#1A0A03; --warn:#F2B866; --warn-soft:#3A2A10; color-scheme:dark}
+
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;
+  padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:720px;margin:0 auto}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ink);color:var(--bg)}
+.bar .wrap{display:flex;align-items:center;gap:12px;min-height:56px}
+.bar h1{margin:0;padding-block:4px;font:600 1.45rem/1.25 var(--f-display);letter-spacing:.02em;text-transform:uppercase;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar small{font:500 .72rem/1 var(--f-display);letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+.back{background:none;border:0;color:inherit;font:600 1rem var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:8px 10px 8px 0;cursor:pointer}
+
+main{padding-block:20px 8px}
+.eyebrow{font:600 .78rem/1 var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:28px 0 10px}
+.eyebrow:first-child{margin-top:4px}
+
+/* tally */
+.tally{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.tally>div{padding:14px 14px 12px;border-left:1px solid var(--line);min-width:0}
+.tally>div:first-child{border-left:0}
+.tally b{display:block;font:500 1.75rem/1.1 var(--f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tally span{font:600 .74rem/1.2 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tally .lead b{color:var(--sea)}
+.subline{margin:8px 2px 0;color:var(--muted);font-size:.9rem}
+@media (max-width:520px){.tally{grid-template-columns:1fr 1fr}.tally>div:nth-child(3){border-left:0}.tally>div:nth-child(n+3){border-top:1px solid var(--line)}}
+
+/* ruled lists */
+.ruled{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.ruled>li+li{border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:14px 16px;cursor:pointer}
+.row:hover{background:var(--sea-soft)}
+.row:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.back:focus-visible,.link:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.row .t{font:600 1.2rem/1.2 var(--f-display);letter-spacing:.01em;min-width:0}
+.row .m{color:var(--muted);font-size:.9rem;min-width:0;overflow-wrap:anywhere}
+.row .r{grid-column:2;grid-row:1/span 2;text-align:right}
+.row .r b{display:block;font:500 1.3rem/1.1 var(--f-mono);font-variant-numeric:tabular-nums}
+.row .r span{font:600 .7rem var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.chip{display:inline-block;font:600 .68rem/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;padding:4px 6px 3px;border-radius:3px;border:1px solid currentColor;color:var(--sea);vertical-align:2px;margin-left:6px}
+.chip.cap{color:var(--signal)}
+.chip.demo{color:var(--warn)}
+
+/* leg rows */
+.leg{display:grid;grid-template-columns:4.6rem 1fr auto;gap:2px 14px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:12px 16px;cursor:pointer}
+.leg:hover{background:var(--sea-soft)}
+.leg .d{font:500 .9rem/1.35 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.leg .d b{display:block;color:var(--ink);font-weight:500}
+.leg .route,.leg .wx{display:block}
+.leg .route{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.leg .wx{color:var(--muted);font-size:.88rem;min-width:0;overflow-wrap:anywhere}
+.leg .nm{font:500 1.15rem/1.2 var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.leg .nm small{display:block;font:600 .66rem var(--f-display);letter-spacing:.1em;color:var(--muted)}
+
+/* voyage head */
+.vhead{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px}
+.vhead h2{margin:0 0 4px;font:600 1.7rem/1.1 var(--f-display);text-wrap:balance}
+.vhead dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;margin:14px 0 0}
+.vhead dt{font:600 .7rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.vhead dd{margin:0;overflow-wrap:anywhere}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:.92rem;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner p{margin:0;flex:1;min-width:200px}
+
+/* empty */
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:6px;padding:22px 18px;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font:600 1.15rem var(--f-display);margin-bottom:4px}
+
+/* forms */
+form{display:grid;gap:22px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:repeat(6,1fr)}
+legend{font:600 .78rem/1 var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:0;margin-bottom:10px}
+.f{display:grid;gap:5px;grid-column:span 6;min-width:0}
+.f.h{grid-column:span 3}.f.t{grid-column:span 2}
+@media (max-width:520px){.f.t{grid-column:span 3}.f.t.last{grid-column:span 6}}
+label{font-weight:600;font-size:.92rem}
+label i{font-style:normal;font-weight:400;color:var(--muted)}
+input,select,textarea{width:100%;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:10px 11px;font-size:1rem}
+input[type=number],input[type=date],input[type=time]{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+textarea{min-height:84px;resize:vertical}
+.hint{font-size:.84rem;color:var(--muted);margin:0}
+.inline{display:flex;gap:8px}
+.inline input{flex:1}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:5px;border:1px solid var(--line);background:var(--surface);
+  padding:10px 16px;font:600 1rem/1.1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--sea)}
+.btn.primary{background:var(--signal);border-color:var(--signal);color:var(--signal-ink)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--signal);border-color:var(--signal)}
+.btn.small{padding:7px 11px;font-size:.88rem}
+.link{background:none;border:0;padding:0;color:var(--sea);font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.tools .btn{justify-content:flex-start}
+.tools .btn svg{flex:none}
+.note{font-size:.88rem;color:var(--muted);margin:12px 2px 0}
+.note.warn{color:var(--warn)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.confirm{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--warn-soft);color:var(--warn);padding:10px 12px;border-radius:6px}
+
+/* bottom bar */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:6;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);padding-top:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.dock .wrap{display:flex;gap:10px}
+.dock .btn{flex:1;padding-block:14px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:6px;font-size:.95rem;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgb(0 0 0 / .25)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .18s ease-out}@keyframes up{from{opacity:0;transform:translate(-50%,8px)}}}
+</style>
+<!--/HEAD-->
+<header class="bar gutter"><div class="wrap" id="bar"></div></header>
+<main class="gutter"><div class="wrap" id="view"></div></main>
+<nav class="dock gutter"><div class="wrap" id="dock"></div></nav>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// XLSX-START
+const XLSX = (() => {
+  const enc = new TextEncoder();
+  const T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = T[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+
+  function zip(files) {
+    const parts = [], central = []; let off = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+      const l = new DataView(new ArrayBuffer(30));
+      l.setUint32(0, 0x04034b50, true); l.setUint16(4, 20, true); l.setUint16(6, 0x0800, true);
+      l.setUint16(12, 33, true); l.setUint32(14, crc, true); l.setUint32(18, data.length, true); l.setUint32(22, data.length, true);
+      l.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(l.buffer), name, data);
+      const c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+      c.setUint16(14, 33, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+      c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+      central.push(new Uint8Array(c.buffer), name);
+      off += 30 + name.length + data.length;
+    }
+    const cdSize = central.reduce((s, x) => s + x.length, 0);
+    const e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+    e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+    const all = [...parts, ...central, new Uint8Array(e.buffer)];
+    const out = new Uint8Array(all.reduce((s, x) => s + x.length, 0)); let p = 0;
+    for (const x of all) { out.set(x, p); p += x.length; }
+    return out;
+  }
+
+  const esc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const col = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+  const serial = iso => { const [y, m, d] = iso.split('-').map(Number); return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000; };
+
+  // styles: 0 normal, 1 header, 2 date, 3 0.0, 4 bold, 5 bold 0.0, 6 title, 7 wrap text
+  // cell: null | string | number | {v, s, f, date}
+  function cell(ref, c) {
+    if (c === null || c === undefined || c === '') return '';
+    let v = c, s = 0, f = null;
+    if (typeof c === 'object') { v = c.v; s = c.s || 0; f = c.f || null; if (c.date) { if (!v) return ''; v = serial(v); s = 2; } if (v === '' || v == null) return ''; }
+    const sa = s ? ` s="${s}"` : '';
+    if (f) return `<c r="${ref}"${sa}><f>${esc(f)}</f>${typeof v === 'number' ? `<v>${v}</v>` : ''}</c>`;
+    if (typeof v === 'number' && isFinite(v)) return `<c r="${ref}"${sa}><v>${v}</v></c>`;
+    return `<c r="${ref}"${sa} t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
+  }
+
+  function sheet(rows, o = {}) {
+    let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+    x += '<sheetViews><sheetView workbookViewId="0">' + (o.freeze ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : '') + '</sheetView></sheetViews>';
+    if (o.widths) x += '<cols>' + o.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>';
+    x += '<sheetData>';
+    rows.forEach((r, ri) => {
+      x += `<row r="${ri + 1}">` + r.map((c, ci) => cell(col(ci) + (ri + 1), c)).join('') + '</row>';
+    });
+    x += '</sheetData>';
+    if (o.filter) x += `<autoFilter ref="${o.filter}"/>`;
+    return x + '</worksheet>';
+  }
+
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>
+<fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="15"/><color rgb="FF102233"/><name val="Calibri"/><family val="2"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDAE6EC"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FF102233"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="8">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  // sheets: [{name, rows, opts}]
+  function workbook(sheets) {
+    const files = [];
+    files.push({ name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>' });
+    files.push({ name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
+    const defs = sheets.map((s, i) => s.opts && s.opts.filter ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${s.name}'!${s.opts.filter.replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}</definedName>` : '').join('');
+    files.push({ name: 'xl/workbook.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr/><bookViews><workbookView/></bookViews><sheets>' + sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>' + (defs ? `<definedNames>${defs}</definedNames>` : '') + '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>' });
+    files.push({ name: 'xl/_rels/workbook.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') + `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` });
+    files.push({ name: 'xl/styles.xml', data: styles });
+    sheets.forEach((s, i) => files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheet(s.rows, s.opts) }));
+    return zip(files);
+  }
+  return { workbook, col };
+})();
+
+// ---- doménová logika (sdílí aplikace i export) ----
+const BFT = ['bezvětří', 'vánek', 'větřík', 'slabý vítr', 'mírný vítr', 'čerstvý vítr', 'silný vítr', 'mírný vichr', 'čerstvý vichr', 'silný vichr', 'plný vichr', 'vichřice', 'orkán'];
+const SEA = ['hladké', 'klidné', 'mírně zvlněné', 'zvlněné', 'mírně rozbouřené', 'rozbouřené', 'velmi rozbouřené', 'vysoké', 'velmi vysoké', 'mimořádně vysoké'];
+const DIRS = ['S', 'SSV', 'SV', 'VSV', 'V', 'VJV', 'JV', 'JJV', 'J', 'JJZ', 'JZ', 'ZJZ', 'Z', 'ZSZ', 'SZ', 'SSZ'];
+const ROLES = ['Kapitán', 'Spolukapitán', 'Člen posádky', 'Výcvik'];
+const KINDS = ['Charter', 'Vlastní loď', 'Klubová plavba', 'Výcvik', 'Regata'];
+const n = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(x) ? x : 0; };
+const r1 = v => Math.round(v * 10) / 10;
+
+function voyageStats(db, vid) {
+  const legs = db.legs.filter(l => l.voyageId === vid).sort((a, b) => (a.date + (a.dep || '')).localeCompare(b.date + (b.dep || '')));
+  const days = new Set(legs.filter(l => n(l.nm) > 0).map(l => l.date));
+  const dates = legs.map(l => l.date).filter(Boolean);
+  return {
+    legs, count: legs.length, days: days.size,
+    nm: r1(legs.reduce((s, l) => s + n(l.nm), 0)),
+    night: r1(legs.reduce((s, l) => s + n(l.nightH), 0)),
+    motor: r1(legs.reduce((s, l) => s + n(l.motorH), 0)),
+    maxBft: legs.reduce((m, l) => l.bft !== '' && l.bft != null ? Math.max(m, +l.bft) : m, -1),
+    first: dates[0] || '', last: dates[dates.length - 1] || ''
+  };
+}
+function totals(db) {
+  const t = { nm: 0, days: 0, voyages: 0, capNm: 0, night: 0, motor: 0, byRole: {} };
+  for (const v of db.voyages) {
+    const s = voyageStats(db, v.id);
+    t.voyages++; t.nm += s.nm; t.days += s.days; t.night += s.night; t.motor += s.motor;
+    if (v.role === 'Kapitán') t.capNm += s.nm;
+    const r = v.role || 'Neuvedeno';
+    t.byRole[r] = t.byRole[r] || { voyages: 0, nm: 0, days: 0 };
+    t.byRole[r].voyages++; t.byRole[r].nm += s.nm; t.byRole[r].days += s.days;
+  }
+  t.nm = r1(t.nm); t.capNm = r1(t.capNm); t.night = r1(t.night); t.motor = r1(t.motor);
+  return t;
+}
+
+function buildXlsx(db, today) {
+  const vs = db.voyages.map(v => ({ v, s: voyageStats(db, v.id) }))
+    .sort((a, b) => (a.v.from || a.s.first).localeCompare(b.v.from || b.s.first));
+  const t = totals(db);
+  const H = a => a.map(x => ({ v: x, s: 1 }));
+
+  const prehled = [
+    [{ v: 'Lodní deník – přehled praxe', s: 6 }],
+    ['Vystaveno', { v: today, date: true }],
+    [],
+    H(['Ukazatel', 'Hodnota']),
+    ['Uplutí celkem (NM)', { v: t.nm, s: 3 }],
+    ['Dní na moři', t.days],
+    ['Počet plaveb', t.voyages],
+    ['NM jako kapitán', { v: t.capNm, s: 3 }],
+    ['Noční plavba (h)', { v: t.night, s: 3 }],
+    ['Motor (h)', { v: t.motor, s: 3 }],
+    [],
+    H(['Funkce na palubě', 'Plaveb', 'Dní na moři', 'NM']),
+    ...Object.entries(t.byRole).map(([r, x]) => [r, x.voyages, x.days, { v: r1(x.nm), s: 3 }])
+  ];
+
+  const plavbyHead = ['Plavba', 'Loď', 'Typ lodi', 'Délka (m)', 'Revír', 'Typ plavby', 'Kapitán', 'Posádka', 'Moje funkce', 'Od', 'Do', 'Etap', 'Dní na moři', 'NM', 'Noční plavba (h)', 'Motor (h)', 'Max. Bft', 'Poznámka'];
+  const plavby = [H(plavbyHead), ...vs.map(({ v, s }) => [
+    v.name, v.boat, v.boatType, v.length ? n(v.length) : '', v.area, v.kind, v.skipper, v.crew, v.role,
+    { v: v.from || s.first, date: true }, { v: v.to || s.last, date: true },
+    s.count, s.days, { v: s.nm, s: 3 }, { v: s.night, s: 3 }, { v: s.motor, s: 3 }, s.maxBft >= 0 ? s.maxBft : '', { v: v.notes || '', s: 7 }
+  ])];
+  const last = plavby.length;
+  if (vs.length) {
+    const sum = (c, s, val) => ({ f: `SUM(${c}2:${c}${last})`, s, v: val });
+    plavby.push([{ v: 'Celkem', s: 4 }, '', '', '', '', '', '', '', '', '', '', sum('L', 4, vs.reduce((a, x) => a + x.s.count, 0)), sum('M', 4, t.days), sum('N', 5, t.nm), sum('O', 5, t.night), sum('P', 5, t.motor)]);
+  }
+
+  const etapyHead = ['Plavba', 'Loď', 'Datum', 'Odkud', 'Kam', 'Vyplutí', 'Připlutí', 'NM', 'Motor (h)', 'Noční plavba (h)', 'Vítr – směr', 'Vítr – Bft', 'Stav moře', 'Poloha', 'Poznámka'];
+  const etapy = [H(etapyHead)];
+  for (const { v, s } of vs) for (const l of s.legs) etapy.push([
+    v.name, v.boat, { v: l.date, date: true }, l.from, l.to, l.dep, l.arr, { v: n(l.nm), s: 3 },
+    l.motorH !== '' && l.motorH != null ? { v: n(l.motorH), s: 3 } : '', l.nightH !== '' && l.nightH != null ? { v: n(l.nightH), s: 3 } : '',
+    l.windDir, l.bft !== '' && l.bft != null ? +l.bft : '', l.sea !== '' && l.sea != null ? `${l.sea} – ${SEA[+l.sea]}` : '', l.pos, { v: l.notes || '', s: 7 }
+  ]);
+
+  return XLSX.workbook([
+    { name: 'Přehled', rows: prehled, opts: { widths: [26, 14, 14, 12] } },
+    { name: 'Plavby', rows: plavby, opts: { freeze: true, widths: [26, 16, 20, 9, 22, 14, 18, 24, 14, 11, 11, 6, 11, 9, 14, 10, 9, 36], filter: `A1:${XLSX.col(plavbyHead.length - 1)}${last}` } },
+    { name: 'Etapy', rows: etapy, opts: { freeze: true, widths: [24, 16, 11, 18, 18, 9, 9, 8, 10, 14, 11, 10, 20, 26, 40], filter: `A1:${XLSX.col(etapyHead.length - 1)}${etapy.length}` } }
+  ]);
+}
+
+function sampleData() {
+  const v = { id: 'ukazka', sample: true, name: 'Kornati – září 2026', boat: 'Vjetrenjača', boatType: 'Bavaria Cruiser 46', length: '14,3', area: 'Chorvatsko – Kornati a Krka', kind: 'Charter', skipper: 'Jarda F.', crew: '6 osob', role: 'Kapitán', from: '', to: '', notes: 'Ukázková plavba – smažte ji, až začnete psát vlastní deník.' };
+  const L = (date, from, to, dep, arr, nm, motorH, nightH, windDir, bft, sea, pos, notes) => ({ id: 'u' + date + from.slice(0, 3), voyageId: 'ukazka', date, from, to, dep, arr, nm, motorH, nightH, windDir, bft, sea, pos, notes });
+  return {
+    voyages: [v],
+    legs: [
+      L('2026-09-12', 'Biograd na Moru', 'ACI Žut', '10:40', '15:10', '18,5', '1,5', '', 'Z', '3', '2', '43°53,9′ N 15°19,0′ E', 'Převzetí lodi, kontrola kotevního vrátku.'),
+      L('2026-09-13', 'ACI Žut', 'Levrnaka', '09:30', '12:00', '9', '0,5', '', 'SZ', '4', '3', '43°49,2′ N 15°14,9′ E', 'Na bóji, koupání v zátoce Lojena.'),
+      L('2026-09-14', 'Levrnaka', 'Skradin', '06:20', '13:40', '32,4', '3', '', 'JV', '5', '4', '43°49,0′ N 15°55,4′ E', 'Jugo zesílilo kolem poledne, refování na 2. ref.'),
+      L('2026-09-15', 'Skradin', 'Primošten', '10:00', '15:30', '21,2', '2', '', 'SZ', '4', '3', '43°35,1′ N 15°55,4′ E', ''),
+      L('2026-09-16', 'Primošten', 'Biograd na Moru', '04:30', '11:15', '28,6', '1', '1,5', 'V', '2', '1', '43°56,3′ N 15°26,6′ E', 'Noční vyplutí, bóra slábla. Vrácení lodi bez závad.')
+    ],
+    meta: { created: new Date().toISOString() }
+  };
+}
+// XLSX-END
+
+// ---- aplikace ----
+const KEY = 'ifp-lodni-denik-v1';
+let db = { voyages: [], legs: [], meta: {} };
+let storageOk = true;
+let state = { view: 'home' };
+let confirmKey = null;
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const d = JSON.parse(raw); db = { voyages: d.voyages || [], legs: d.legs || [], meta: d.meta || {} }; return; }
+    db = sampleData(); persist();
+  } catch (e) { storageOk = false; db = sampleData(); }
+}
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(db)); storageOk = true; } catch (e) { storageOk = false; } }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const todayIso = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const WD = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+function fd(iso, withYear = true) { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return withYear ? `${d}. ${m}. ${y}` : `${d}. ${m}.`; }
+function wd(iso) { const [y, m, d] = iso.split('-').map(Number); return WD[new Date(y, m - 1, d).getDay()]; }
+const fmt = x => (Math.round(x * 10) / 10).toLocaleString('cs-CZ', { maximumFractionDigits: 1 });
+function pl(k, a, b, c) { return k === 1 ? a : (k >= 2 && k <= 4 ? b : c); }
+function range(v, s) {
+  const a = v.from || s.first, b = v.to || s.last;
+  if (!a) return 'Bez etap';
+  if (!b || a === b) return fd(a);
+  const [ya] = a.split('-'), [yb] = b.split('-');
+  return ya === yb ? `${fd(a, false)} – ${fd(b)}` : `${fd(a)} – ${fd(b)}`;
+}
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 3200);
+}
+
+// navigace (tlačítko zpět v telefonu funguje díky history)
+function go(s, push = true) {
+  state = s; confirmKey = null;
+  if (push) { try { history.pushState(s, ''); } catch (e) { } }
+  render(); window.scrollTo(0, 0);
+}
+window.addEventListener('popstate', e => { state = e.state || { view: 'home' }; confirmKey = null; render(); });
+
+const ICON = {
+  xls: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 12l6 6M15 12l-6 6"/></svg>',
+  save: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>',
+  open: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21V9m0 0-4 4m4-4 4 4M5 3h14"/></svg>',
+  phone: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+  pin: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>'
+};
+
+function bar(title, back, sub) {
+  return (back ? `<button class="back" data-a="back">‹ Zpět</button>` : '') +
+    `<h1>${h(title)}</h1>` + (sub ? `<small>${h(sub)}</small>` : '');
+}
+
+function viewHome() {
+  const t = totals(db);
+  const list = db.voyages.map(v => ({ v, s: voyageStats(db, v.id) }))
+    .sort((a, b) => (b.v.from || b.s.first || '9').localeCompare(a.v.from || a.s.first || '9'));
+  const lb = db.meta.lastBackup;
+  const daysSince = lb ? Math.floor((Date.now() - new Date(lb).getTime()) / 864e5) : null;
+  const realVoyages = db.voyages.filter(v => !v.sample).length;
+  let backupNote = '';
+  if (realVoyages && (daysSince === null || daysSince > 30)) backupNote = `<p class="note warn">${daysSince === null ? 'Zatím nemáte zálohu.' : `Poslední záloha před ${daysSince} dny.`} Záznamy jsou jen v tomto zařízení, stáhněte si zálohu.</p>`;
+  else if (lb) backupNote = `<p class="note">Poslední záloha ${fd(lb.slice(0, 10))}.</p>`;
+
+  return `
+  <p class="eyebrow">Moje praxe</p>
+  <div class="tally">
+    <div class="lead"><b>${fmt(t.nm)}</b><span>NM celkem</span></div>
+    <div><b>${t.days}</b><span>Dní na moři</span></div>
+    <div><b>${t.voyages}</b><span>${pl(t.voyages, 'Plavba', 'Plavby', 'Plaveb')}</span></div>
+    <div><b>${fmt(t.capNm)}</b><span>NM jako kapitán</span></div>
+  </div>
+  <p class="subline">Noční plavba ${fmt(t.night)} h · motor ${fmt(t.motor)} h</p>
+
+  <p class="eyebrow">Plavby</p>
+  ${list.length ? `<ul class="ruled">${list.map(({ v, s }) => `
+    <li><button class="row" data-a="open" data-id="${h(v.id)}">
+      <span class="t">${h(v.name)}${v.sample ? '<span class="chip demo">Ukázka</span>' : ''}${v.role ? `<span class="chip${v.role === 'Kapitán' ? ' cap' : ''}">${h(v.role)}</span>` : ''}</span>
+      <span class="m"><span class="num">${range(v, s)}</span>${v.boat || v.area ? ' · ' : ''}${h([v.boat, v.area].filter(Boolean).join(' · '))}</span>
+      <span class="r"><b>${fmt(s.nm)}</b><span>NM · ${s.days} ${pl(s.days, 'den', 'dny', 'dní')}</span></span>
+    </button></li>`).join('')}</ul>`
+      : `<div class="empty"><strong>Deník je prázdný</strong>Založte první plavbu tlačítkem dole. Pak k ní přidávejte jednotlivé dny – odkud, kam, kolik mil a jaký foukal vítr.</div>`}
+
+  <p class="eyebrow">Export a záloha</p>
+  <div class="tools">
+    <button class="btn" data-a="xlsx">${ICON.xls} Export do Excelu</button>
+    <button class="btn" data-a="backup">${ICON.save} Stáhnout zálohu</button>
+    <button class="btn" data-a="restore">${ICON.open} Načíst zálohu</button>
+    ${installBtn()}
+  </div>
+  ${backupNote}
+  ${iosHint()}
+  ${storageOk ? '' : '<p class="note warn">Tento prohlížeč nedovoluje ukládat data. Záznamy se po zavření ztratí – stáhněte si zálohu.</p>'}
+  <p class="note">Deník se ukládá jen v tomto zařízení a funguje i bez signálu.</p>`;
+}
+
+function viewVoyage(v) {
+  const s = voyageStats(db, v.id);
+  const lastLegs = s.legs;
+  const k = 'v' + v.id;
+  return `
+  ${v.sample ? `<div class="banner"><p>Tohle je ukázková plavba, ať vidíte, jak deník vypadá vyplněný.</p><button class="btn small" data-a="delVoyage" data-id="${h(v.id)}" data-now="1">Smazat ukázku</button></div>` : ''}
+  <section class="vhead">
+    <h2>${h(v.name)}</h2>
+    <div class="num" style="color:var(--muted)">${range(v, s)}</div>
+    <dl>
+      ${v.boat || v.boatType ? `<div><dt>Loď</dt><dd>${h([v.boat, v.boatType].filter(Boolean).join(', '))}${v.length ? ` <span class="num">(${h(v.length)} m)</span>` : ''}</dd></div>` : ''}
+      ${v.area ? `<div><dt>Revír</dt><dd>${h(v.area)}</dd></div>` : ''}
+      ${v.role ? `<div><dt>Moje funkce</dt><dd>${h(v.role)}</dd></div>` : ''}
+      ${v.skipper ? `<div><dt>Kapitán</dt><dd>${h(v.skipper)}</dd></div>` : ''}
+      ${v.kind ? `<div><dt>Typ plavby</dt><dd>${h(v.kind)}</dd></div>` : ''}
+      ${v.crew ? `<div><dt>Posádka</dt><dd>${h(v.crew)}</dd></div>` : ''}
+    </dl>
+  </section>
+
+  <div class="tally" style="margin-top:14px">
+    <div class="lead"><b>${fmt(s.nm)}</b><span>NM</span></div>
+    <div><b>${s.days}</b><span>Dní na moři</span></div>
+    <div><b>${fmt(s.night)}</b><span>Noc (h)</span></div>
+    <div><b>${s.maxBft >= 0 ? s.maxBft : '–'}</b><span>Max. Bft</span></div>
+  </div>
+
+  <p class="eyebrow">Etapy</p>
+  ${lastLegs.length ? `<ul class="ruled">${lastLegs.map(l => `
+    <li><button class="leg" data-a="editLeg" data-id="${h(l.id)}">
+      <span class="d">${wd(l.date)}<b>${fd(l.date, false)}</b></span>
+      <span style="min-width:0">
+        <span class="route">${h(l.from || '?')} → ${h(l.to || '?')}</span>
+        <span class="wx">${[l.dep && l.arr ? `<span class="num">${h(l.dep)}–${h(l.arr)}</span>` : '', l.windDir || l.bft !== '' && l.bft != null ? `vítr ${h(l.windDir || '')} ${l.bft !== '' && l.bft != null ? h(l.bft) + ' Bft' : ''}` : '', n(l.nightH) ? `noc ${fmt(n(l.nightH))} h` : ''].filter(Boolean).join(' · ')}</span>
+        ${l.notes ? `<span class="wx" style="display:block">${h(l.notes)}</span>` : ''}
+      </span>
+      <span class="nm">${fmt(n(l.nm))}<small>NM</small></span>
+    </button></li>`).join('')}</ul>`
+      : `<div class="empty"><strong>Zatím žádná etapa</strong>Každý den plavby zapište jako jednu etapu. Přidáte ji tlačítkem dole.</div>`}
+  ${v.notes ? `<p class="eyebrow">Poznámka</p><p style="margin:0;white-space:pre-wrap">${h(v.notes)}</p>` : ''}
+
+  <p class="eyebrow">Plavba</p>
+  ${confirmKey === k ? `<div class="confirm"><span>Smazat plavbu i ${s.count} ${pl(s.count, 'etapu', 'etapy', 'etap')}?</span><button class="btn small danger" data-a="delVoyage" data-id="${h(v.id)}" data-now="1">Smazat</button><button class="btn small" data-a="cancel">Ponechat</button></div>`
+      : `<div class="actions"><button class="btn small" data-a="editVoyage" data-id="${h(v.id)}">Upravit plavbu</button><button class="btn small danger" data-a="delVoyage" data-id="${h(v.id)}">Smazat plavbu</button></div>`}`;
+}
+
+const opt = (val, label, cur) => `<option value="${h(val)}"${String(cur ?? '') === String(val) ? ' selected' : ''}>${h(label)}</option>`;
+
+function viewVoyageForm(v) {
+  v = v || { role: 'Kapitán', kind: 'Charter' };
+  return `
+  <form id="fVoyage" novalidate>
+    <fieldset><legend>Plavba</legend>
+      <div class="f"><label for="v_name">Název plavby</label><input id="v_name" name="name" required value="${h(v.name)}" placeholder="např. Kyklady – červen 2026"></div>
+      <div class="f h"><label for="v_area">Revír</label><input id="v_area" name="area" value="${h(v.area)}" placeholder="Řecko – Kyklady"></div>
+      <div class="f h"><label for="v_kind">Typ plavby</label><select id="v_kind" name="kind">${opt('', '—', v.kind)}${KINDS.map(x => opt(x, x, v.kind)).join('')}</select></div>
+      <div class="f h"><label for="v_from">Od <i>(nepovinné)</i></label><input id="v_from" name="from" type="date" value="${h(v.from)}"></div>
+      <div class="f h"><label for="v_to">Do <i>(nepovinné)</i></label><input id="v_to" name="to" type="date" value="${h(v.to)}"></div>
+      <p class="hint f">Data nemusíte vyplňovat, doplní se z etap.</p>
+    </fieldset>
+    <fieldset><legend>Loď</legend>
+      <div class="f t"><label for="v_boat">Jméno lodi</label><input id="v_boat" name="boat" value="${h(v.boat)}"></div>
+      <div class="f t"><label for="v_type">Typ lodi</label><input id="v_type" name="boatType" value="${h(v.boatType)}" placeholder="Bavaria 46"></div>
+      <div class="f t last"><label for="v_len">Délka (m)</label><input id="v_len" name="length" inputmode="decimal" value="${h(v.length)}" placeholder="14,3"></div>
+    </fieldset>
+    <fieldset><legend>Posádka</legend>
+      <div class="f h"><label for="v_role">Moje funkce</label><select id="v_role" name="role">${ROLES.map(x => opt(x, x, v.role)).join('')}</select></div>
+      <div class="f h"><label for="v_skip">Kapitán</label><input id="v_skip" name="skipper" value="${h(v.skipper)}"></div>
+      <div class="f"><label for="v_crew">Posádka <i>(jména nebo počet)</i></label><input id="v_crew" name="crew" value="${h(v.crew)}"></div>
+      <div class="f"><label for="v_notes">Poznámka</label><textarea id="v_notes" name="notes">${h(v.notes)}</textarea></div>
+    </fieldset>
+  </form>`;
+}
+
+function ports() { return [...new Set(db.legs.flatMap(l => [l.from, l.to]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'cs')); }
+
+function viewLegForm(v, l) {
+  const isNew = !l;
+  if (!l) {
+    const s = voyageStats(db, v.id), prev = s.legs[s.legs.length - 1];
+    let date = v.from || todayIso();
+    if (prev && prev.date) { const [y, m, d] = prev.date.split('-').map(Number); const nd = new Date(Date.UTC(y, m - 1, d + 1)); date = nd.toISOString().slice(0, 10); }
+    l = { date, from: prev ? prev.to : '', bft: '', sea: '' };
+  }
+  const k = 'l' + (l.id || '');
+  return `
+  <form id="fLeg" novalidate>
+    <fieldset><legend>Kdy a kam</legend>
+      <div class="f t"><label for="l_date">Datum</label><input id="l_date" name="date" type="date" required value="${h(l.date)}"></div>
+      <div class="f t"><label for="l_dep">Vyplutí</label><input id="l_dep" name="dep" type="time" value="${h(l.dep)}"></div>
+      <div class="f t last"><label for="l_arr">Připlutí</label><input id="l_arr" name="arr" type="time" value="${h(l.arr)}"></div>
+      <div class="f h"><label for="l_from">Odkud</label><input id="l_from" name="from" list="ports" value="${h(l.from)}" placeholder="přístav, marina, kotviště"></div>
+      <div class="f h"><label for="l_to">Kam</label><input id="l_to" name="to" list="ports" value="${h(l.to)}"></div>
+      <datalist id="ports">${ports().map(p => `<option value="${h(p)}">`).join('')}</datalist>
+    </fieldset>
+    <fieldset><legend>Míle a hodiny</legend>
+      <div class="f t"><label for="l_nm">Uplutí (NM)</label><input id="l_nm" name="nm" inputmode="decimal" value="${h(l.nm)}" placeholder="0"></div>
+      <div class="f t"><label for="l_mot">Motor (h)</label><input id="l_mot" name="motorH" inputmode="decimal" value="${h(l.motorH)}"></div>
+      <div class="f t last"><label for="l_night">Noční plavba (h)</label><input id="l_night" name="nightH" inputmode="decimal" value="${h(l.nightH)}"></div>
+    </fieldset>
+    <fieldset><legend>Počasí</legend>
+      <div class="f t"><label for="l_dir">Vítr – směr</label><select id="l_dir" name="windDir">${opt('', '—', l.windDir)}${DIRS.map(x => opt(x, x, l.windDir)).join('')}</select></div>
+      <div class="f t"><label for="l_bft">Síla (Bft)</label><select id="l_bft" name="bft">${opt('', '—', l.bft)}${BFT.map((x, i) => opt(i, `${i} – ${x}`, l.bft)).join('')}</select></div>
+      <div class="f t last"><label for="l_sea">Stav moře</label><select id="l_sea" name="sea">${opt('', '—', l.sea)}${SEA.map((x, i) => opt(i, `${i} – ${x}`, l.sea)).join('')}</select></div>
+      <p class="hint f">Směr odkud vítr vane: S sever, V východ, J jih, Z západ. Stav moře podle Douglasovy stupnice.</p>
+    </fieldset>
+    <fieldset><legend>Záznam</legend>
+      <div class="f"><label for="l_pos">Poloha <i>(nepovinné)</i></label><div class="inline"><input id="l_pos" name="pos" value="${h(l.pos)}" placeholder="43°53,9′ N 15°19,0′ E"><button type="button" class="btn small" data-a="gps">${ICON.pin} GPS</button></div></div>
+      <div class="f"><label for="l_notes">Události a poznámky</label><textarea id="l_notes" name="notes" placeholder="refování, poruchy, kotvení, kontrola…">${h(l.notes)}</textarea></div>
+    </fieldset>
+    ${isNew ? '' : (confirmKey === k
+      ? `<div class="confirm"><span>Smazat tuto etapu?</span><button type="button" class="btn small danger" data-a="delLeg" data-id="${h(l.id)}" data-now="1">Smazat</button><button type="button" class="btn small" data-a="cancel">Ponechat</button></div>`
+      : `<div class="actions"><button type="button" class="btn small danger" data-a="delLeg" data-id="${h(l.id)}">Smazat etapu</button></div>`)}
+  </form>`;
+}
+
+function render() {
+  const B = document.getElementById('bar'), V = document.getElementById('view'), D = document.getElementById('dock');
+  const v = state.id ? db.voyages.find(x => x.id === state.id) : null;
+  if (state.view !== 'home' && state.view !== 'voyageForm' && !v) state = { view: 'home' };
+  if (state.view === 'home') {
+    B.innerHTML = bar('Lodní deník', false, 'Námořní klub');
+    V.innerHTML = viewHome();
+    D.innerHTML = `<button class="btn primary" data-a="newVoyage">+ Nová plavba</button>`;
+  } else if (state.view === 'voyage') {
+    B.innerHTML = bar(v.name, true);
+    V.innerHTML = viewVoyage(v);
+    D.innerHTML = `<button class="btn primary" data-a="newLeg">+ Přidat etapu</button>`;
+  } else if (state.view === 'voyageForm') {
+    B.innerHTML = bar(v ? 'Upravit plavbu' : 'Nová plavba', true);
+    V.innerHTML = viewVoyageForm(v);
+    D.innerHTML = `<button class="btn" data-a="back">Zrušit</button><button class="btn primary" data-a="saveVoyage">Uložit</button>`;
+  } else if (state.view === 'legForm') {
+    const l = state.legId ? db.legs.find(x => x.id === state.legId) : null;
+    B.innerHTML = bar(l ? 'Upravit etapu' : 'Nová etapa', true, v.name);
+    V.innerHTML = viewLegForm(v, l);
+    D.innerHTML = `<button class="btn" data-a="back">Zrušit</button><button class="btn primary" data-a="saveLeg">Uložit</button>`;
+  }
+}
+
+function formData(id) { const o = {}; new FormData(document.getElementById(id)).forEach((val, k) => { o[k] = String(val).trim(); }); return o; }
+function back() {
+  if (history.state && history.state.view && history.length > 1) { try { history.back(); return; } catch (e) { } }
+  if (state.view === 'legForm') go({ view: 'voyage', id: state.id }, false);
+  else if (state.view === 'voyageForm' && state.id) go({ view: 'voyage', id: state.id }, false);
+  else go({ view: 'home' }, false);
+}
+function replaceTo(s) { state = s; confirmKey = null; try { history.replaceState(s, ''); } catch (e) { } render(); window.scrollTo(0, 0); }
+
+// ---- soubory: v Claude přes "downloads", jinde stažení nebo sdílení ----
+let downloads = null;
+const capReady = (async () => { try { if (window.claude && typeof window.claude.use === 'function') downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; } })();
+async function saveFile(name, bytes, mime) {
+  await capReady;
+  if (downloads) {
+    try { await downloads.save({ filename: name, data: new Blob([bytes], { type: mime }) }); toast('Uloženo: ' + name); }
+    catch (e) { if (!e || e.code !== 'declined') toast('Soubor se nepodařilo uložit.'); }
+    return;
+  }
+  const file = new File([bytes], name, { type: mime });
+  const touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+  if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(file), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('Staženo: ' + name);
+}
+
+// ---- instalace (jen v nasazené verzi) ----
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (state.view === 'home') render(); });
+const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const topLevel = () => { try { return window.top === window; } catch (e) { return false; } };
+function installBtn() { return installEvt && !standalone() ? `<button class="btn" data-a="install">${ICON.phone} Nainstalovat do telefonu</button>` : ''; }
+function iosHint() {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return ios && !standalone() && topLevel() ? `<p class="note">Na iPhonu deník nainstalujete v Safari: tlačítko Sdílet → Přidat na plochu.</p>` : '';
+}
+
+// ---- akce ----
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-a]'); if (!el) return;
+  const a = el.dataset.a, id = el.dataset.id;
+  if (a === 'back') return back();
+  if (a === 'open') return go({ view: 'voyage', id });
+  if (a === 'newVoyage') return go({ view: 'voyageForm' });
+  if (a === 'editVoyage') return go({ view: 'voyageForm', id });
+  if (a === 'newLeg') return go({ view: 'legForm', id: state.id });
+  if (a === 'editLeg') return go({ view: 'legForm', id: state.id, legId: id });
+  if (a === 'cancel') { confirmKey = null; return render(); }
+  if (a === 'saveVoyage') {
+    const d = formData('fVoyage');
+    if (!d.name) { toast('Vyplňte název plavby.'); document.getElementById('v_name').focus(); return; }
+    if (state.id) { const v = db.voyages.find(x => x.id === state.id); Object.assign(v, d); persist(); replaceTo({ view: 'voyage', id: v.id }); }
+    else { const v = { id: uid(), ...d }; db.voyages.push(v); persist(); replaceTo({ view: 'voyage', id: v.id }); }
+    return toast('Plavba uložena');
+  }
+  if (a === 'saveLeg') {
+    const d = formData('fLeg');
+    if (!d.date) { toast('Vyplňte datum etapy.'); document.getElementById('l_date').focus(); return; }
+    for (const f of ['nm', 'motorH', 'nightH']) if (d[f] && !isFinite(parseFloat(d[f].replace(',', '.')))) { toast('Míle a hodiny zapište jako číslo, např. 12,5.'); document.getElementsByName(f)[0].focus(); return; }
+    if (state.legId) Object.assign(db.legs.find(x => x.id === state.legId), d);
+    else db.legs.push({ id: uid(), voyageId: state.id, ...d });
+    persist(); toast('Etapa uložena');
+    return back();
+  }
+  if (a === 'delVoyage') {
+    if (!el.dataset.now) { confirmKey = 'v' + id; return render(); }
+    db.voyages = db.voyages.filter(v => v.id !== id); db.legs = db.legs.filter(l => l.voyageId !== id);
+    persist(); toast('Plavba smazána'); return replaceTo({ view: 'home' });
+  }
+  if (a === 'delLeg') {
+    if (!el.dataset.now) { confirmKey = 'l' + id; return render(); }
+    db.legs = db.legs.filter(l => l.id !== id); persist(); toast('Etapa smazána'); return back();
+  }
+  if (a === 'gps') {
+    if (!navigator.geolocation) return toast('Zařízení neumí zjistit polohu. Zapište ji ručně.');
+    el.disabled = true; toast('Zjišťuji polohu…');
+    navigator.geolocation.getCurrentPosition(p => {
+      el.disabled = false;
+      const dm = (x, pos, neg) => { const a = Math.abs(x), d = Math.floor(a), m = (a - d) * 60; return `${d}°${m.toFixed(1).replace('.', ',').padStart(4, '0')}′ ${x >= 0 ? pos : neg}`; };
+      document.getElementById('l_pos').value = `${dm(p.coords.latitude, 'N', 'S')} ${dm(p.coords.longitude, 'E', 'W')}`;
+      toast('Poloha doplněna');
+    }, () => { el.disabled = false; toast('Polohu se nepodařilo načíst. Povolte přístup k poloze, nebo ji zapište ručně.'); }, { enableHighAccuracy: true, timeout: 15000 });
+    return;
+  }
+  if (a === 'xlsx') {
+    if (!db.voyages.length) return toast('Deník je prázdný, není co exportovat.');
+    return saveFile(`lodni-denik-${todayIso()}.xlsx`, buildXlsx(db, todayIso()), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  }
+  if (a === 'backup') {
+    const data = JSON.stringify({ app: 'lodni-denik', version: 1, exported: new Date().toISOString(), voyages: db.voyages, legs: db.legs }, null, 1);
+    await saveFile(`lodni-denik-zaloha-${todayIso()}.json`, new TextEncoder().encode(data), 'application/json');
+    db.meta.lastBackup = new Date().toISOString(); persist(); return render();
+  }
+  if (a === 'restore') return document.getElementById('importFile').click();
+  if (a === 'install' && installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { } installEvt = null; return render(); }
+});
+
+document.addEventListener('submit', e => e.preventDefault());
+
+document.getElementById('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.voyages) || !Array.isArray(d.legs)) throw new Error('format');
+    const byId = (arr, items) => { const m = new Map(arr.map(x => [x.id, x])); items.forEach(x => x && x.id && m.set(x.id, x)); return [...m.values()]; };
+    db.voyages = byId(db.voyages, d.voyages); db.legs = byId(db.legs, d.legs);
+    persist(); state = { view: 'home' }; render();
+    toast(`Načteno ze zálohy: ${d.voyages.length} ${pl(d.voyages.length, 'plavba', 'plavby', 'plaveb')}, ${d.legs.length} ${pl(d.legs.length, 'etapa', 'etapy', 'etap')}.`);
+  } catch (err) { toast('Tohle není záloha lodního deníku. Vyberte soubor lodni-denik-zaloha-….json.'); }
+});
+
+load();
+try { history.replaceState(state, ''); } catch (e) { }
+render();
+</script>

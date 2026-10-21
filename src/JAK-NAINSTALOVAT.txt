@@ -1,0 +1,46 @@
+LODNÍ DENÍK – instalace (verze 1)
+=================================
+
+Co je ve složce
+---------------
+index.html             samotná aplikace
+manifest.webmanifest   název a ikona pro instalaci na plochu
+sw.js                  offline režim (deník funguje bez signálu)
+icon-*.png             ikony
+
+1) Nahrání na web (jednou, dělá IFP)
+------------------------------------
+- Celou složku "lodni-denik" nahrajte přes FTP nebo správce souborů
+  hostingu do kořene webu, vedle složek WordPressu (wp-content apod.).
+  Výsledná adresa bude například:
+      https://ifp-publishing.info/lodni-denik/
+- Web musí běžet na https (jinak nejde instalace ani GPS).
+- Do WordPressu se nic neinstaluje, aplikace je na něm nezávislá.
+
+2) Instalace v telefonu (dělá jachtař, cca 20 sekund)
+-----------------------------------------------------
+Android (Chrome): otevřít adresu → dole na úvodní obrazovce tlačítko
+  "Nainstalovat do telefonu" (nebo menu ⋮ → Přidat na plochu).
+iPhone (Safari): otevřít adresu → tlačítko Sdílet → Přidat na plochu.
+Počítač (Chrome/Edge): ikona instalace vpravo v adresním řádku.
+
+Ikona "Lodní deník" se objeví na ploše a aplikace se otevírá
+bez lišty prohlížeče. Funguje i bez signálu.
+
+3) Odkaz pro členy
+------------------
+Adresu stačí vložit do Námořního klubu (Circle) jako příspěvek
+nebo odkaz v menu.
+
+Data a zálohy
+-------------
+- Záznamy se ukládají jen v telefonu daného jachtaře. IFP je nevidí.
+- "Stáhnout zálohu" uloží soubor .json, "Načíst zálohu" ho vrátí zpět
+  (třeba v novém telefonu). Aplikace na zálohu sama upozorní po 30 dnech.
+- "Export do Excelu" vytvoří soubor .xlsx se třemi listy:
+  Přehled (souhrn praxe), Plavby, Etapy.
+
+Aktualizace aplikace
+--------------------
+Přepište soubory na webu novými a v souboru sw.js zvyšte číslo
+verze (denik-v1 → denik-v2). Data uživatelů zůstanou zachovaná.
