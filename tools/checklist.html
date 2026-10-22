@@ -1,0 +1,264 @@
+<title>Zkouška Jacht-knížky</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: zkušební protokol jako list z lodního deníku – hlavička, číslované body po oddílech, u každého tři razítka (funguje / nefunguje / nešlo). Barvy a písma z aplikace. */
+:root{
+  --bg:#EBF0F2; --surface:#FFFFFF; --ink:#102233; --muted:#52667A; --line:#C7D2D9;
+  --sea:#1D5C78; --sea-soft:#DAE6EC; --signal:#CF4318; --signal-soft:#FBE3DA;
+  --ok:#1E7A4C; --ok-soft:#DDF0E5; --warn:#9A5B00; --warn-soft:#FBEBD0; --head:#102233; --head-ink:#EBF0F2;
+  --f-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#09131B; --surface:#102030; --ink:#E3EBF0; --muted:#8FA3B2; --line:#223A4C;
+  --sea:#6DB8D8; --sea-soft:#14303F; --signal:#FF6B3D; --signal-soft:#3A1A10;
+  --ok:#5FD39A; --ok-soft:#12321F; --warn:#F2B866; --warn-soft:#3A2A10; --head:#050C12; --head-ink:#E3EBF0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#09131B; --surface:#102030; --ink:#E3EBF0; --muted:#8FA3B2; --line:#223A4C;
+  --sea:#6DB8D8; --sea-soft:#14303F; --signal:#FF6B3D; --signal-soft:#3A1A10;
+  --ok:#5FD39A; --ok-soft:#12321F; --warn:#F2B866; --warn-soft:#3A2A10; --head:#050C12; --head-ink:#E3EBF0; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--head)}
+button,input,textarea{font:inherit;color:inherit}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:720px;margin:0 auto}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+header{background:var(--head);color:var(--head-ink);padding-block:22px 20px}
+header .kicker{font:600 .74rem/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;opacity:.7;margin:0 0 6px}
+header h1{margin:0;font:600 2.1rem/1.05 var(--f-display);letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+header p{margin:10px 0 0;max-width:60ch;opacity:.9}
+.applink{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:14px}
+.applink a{color:var(--head-ink);font-family:var(--f-mono);font-size:.9rem;word-break:break-all}
+.applink button{background:none;border:1px solid color-mix(in srgb,var(--head-ink) 40%,transparent);color:var(--head-ink);border-radius:4px;padding:5px 10px;font:600 .8rem var(--f-display);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+
+.sticky{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding-block:10px}
+.me{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.me label{font:600 .74rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.me input{flex:1 1 220px;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:8px 10px}
+.progress{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:.88rem;color:var(--muted)}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--sea);width:0;transition:width .25s}
+.status{font-size:.85rem;color:var(--muted);margin:6px 0 0}
+.status.warn{color:var(--warn)}
+
+main{padding-block:8px 48px}
+h2{font:600 .8rem/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:30px 0 10px;display:flex;gap:10px;align-items:baseline}
+h2 .count{font-family:var(--f-mono);letter-spacing:0;font-weight:400}
+ol{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+ol>li+li{border-top:1px solid var(--line)}
+.item{padding:14px 16px;display:grid;gap:8px;border-left:4px solid transparent}
+.item[data-s="ok"]{border-left-color:var(--ok)}
+.item[data-s="fail"]{border-left-color:var(--signal)}
+.item[data-s="skip"]{border-left-color:var(--line)}
+.item h3{margin:0;font:600 1.2rem/1.2 var(--f-display);letter-spacing:.01em;display:flex;gap:10px;text-wrap:balance}
+.item h3 .n{font:500 .9rem/1.5 var(--f-mono);color:var(--muted);min-width:1.6em}
+.item .how{margin:0;color:var(--muted);font-size:.95rem;max-width:65ch}
+.stamps{display:flex;flex-wrap:wrap;gap:8px}
+.stamp{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:7px 12px;font:600 .9rem/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--muted)}
+.stamp:hover{border-color:var(--sea);color:var(--ink)}
+.stamp:focus-visible,.applink button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.stamp[aria-pressed="true"][data-v="ok"]{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.stamp[aria-pressed="true"][data-v="fail"]{background:var(--signal-soft);border-color:var(--signal);color:var(--signal)}
+.stamp[aria-pressed="true"][data-v="skip"]{background:var(--sea-soft);border-color:var(--muted);color:var(--ink)}
+.stamp:disabled{cursor:not-allowed;opacity:.5}
+textarea{width:100%;min-width:0;min-height:44px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font-size:.95rem}
+.others{display:grid;gap:4px;font-size:.88rem}
+.other{display:flex;gap:8px;align-items:baseline;min-width:0}
+.other .who{font-weight:600;white-space:nowrap}
+.other .dev{color:var(--muted)}
+.other .note{min-width:0;overflow-wrap:anywhere}
+.tag{font:600 .66rem/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;padding:3px 5px 2px;border-radius:3px;border:1px solid currentColor;white-space:nowrap}
+.tag.ok{color:var(--ok)} .tag.fail{color:var(--signal)} .tag.skip{color:var(--muted)}
+footer{color:var(--muted);font-size:.85rem;padding-block:0 32px}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<header class="gutter"><div class="wrap">
+  <p class="kicker">Námořní klub · zkušební verze</p>
+  <h1>Zkouška Jacht-knížky</h1>
+  <p>Projděte body v telefonu, ve kterém knížku zkoušíte. U každého klepněte, jak dopadl, a když něco nefunguje, napište do poznámky co přesně a na jaké obrazovce. Výsledky se ukládají průběžně.</p>
+  <div class="applink"><a id="appUrl" href="https://jardaforst.github.io/jachtarska-knizka/" target="_blank" rel="noopener">https://jardaforst.github.io/jachtarska-knizka/</a><button type="button" id="copy">Kopírovat odkaz</button></div>
+</div></header>
+
+<div class="sticky gutter"><div class="wrap">
+  <div class="me"><label for="device">Váš telefon</label><input id="device" placeholder="např. iPhone 13, iOS 19 – Safari" autocomplete="off"></div>
+  <div class="progress"><div class="bar"><i id="barFill"></i></div><span class="num" id="progressText">0 / 0</span></div>
+  <p class="status" id="status">Načítám uložené výsledky…</p>
+</div></div>
+
+<main class="gutter"><div class="wrap" id="list"></div></main>
+<footer class="gutter"><div class="wrap">Každý tester vidí výsledky ostatních, ale měnit může jen své. Data zkoušených plaveb zůstávají v telefonu, sem se ukládá jen to, co napíšete do tohoto protokolu.</div></footer>
+
+<script>
+const SECTIONS = [
+  ['Instalace a spuštění', [
+    ['open', 'Otevření odkazu', 'Otevřete odkaz nahoře v Chrome (Android) nebo Safari (iPhone). Načte se úvodní obrazovka s ukázkovou plavbou Kornati.'],
+    ['install', 'Instalace na plochu', 'Android: tlačítko „Nainstalovat do telefonu“ nebo menu ⋮ → Přidat na plochu. iPhone: Sdílet → Přidat na plochu. Na ploše se objeví ikona s kompasem.'],
+    ['label', 'Název pod ikonou', 'Vejde se pod ikonu celé „Jacht-knížka“? Pokud je zkrácené, napište do poznámky, jak přesně.'],
+    ['launch', 'Spuštění z plochy', 'Knížka se otevře bez adresního řádku prohlížeče a horní lišta nezakrývá hodiny ani výřez displeje.']
+  ]],
+  ['Zápis plaveb', [
+    ['summary', 'Plavba jedním zápisem', '+ Nová plavba → Celá plavba jedním zápisem. Vyplňte plavbu (klidně skutečnou). Dní na moři se předvyplní podle dat. Po uložení se čísla ukážou v detailu i v Moje praxe.'],
+    ['legs', 'Plavba po etapách', '+ Nová plavba → Po etapách a přidejte 2–3 etapy. U druhé etapy je předvyplněný přístav, odkud se vyplouvá.'],
+    ['night', 'Etapa přes noc', 'Etapa s vyplutím ve 22:00 a připlutím ráno. Když nezměníte datum připlutí, knížka upozorní. Po změně data ukáže v seznamu dobu na moři.'],
+    ['switch', 'Přepnutí způsobu zápisu', 'U plavby po etapách klepněte na „Zapsat jedním zápisem“. Souhrn se předvyplní z etap, včetně trasy.'],
+    ['keyboard', 'Psaní v telefonu', 'Čísla s desetinnou čárkou (12,5), výběr data a času, klávesnice nezakrývá vyplňované pole ani tlačítko Uložit.'],
+    ['gps', 'Poloha z GPS', 'V etapě klepněte na GPS a povolte polohu. Doplní se souřadnice ve tvaru 43°53,9′ N 15°19,0′ E.']
+  ]],
+  ['Bez signálu', [
+    ['offline', 'Režim letadlo', 'Zapněte režim letadlo, knížku zavřete a znovu otevřete z plochy. Otevře se a jde do ní zapsat etapa.'],
+    ['offline2', 'Zápis bez signálu zůstal', 'Vypněte režim letadlo a otevřete knížku znovu. Etapa zapsaná bez signálu tam je.']
+  ]],
+  ['Soubory', [
+    ['xlsx', 'Export do Excelu', 'Export do Excelu → uložte nebo pošlete soubor a otevřete ho (Excel, Tabulky Google). Má listy Přehled, Plavby a Etapy a čísla sedí s knížkou.'],
+    ['backup', 'Stažení zálohy', 'Stáhnout zálohu → uložte soubor .json (do e-mailu, na Disk, do Souborů).'],
+    ['restore', 'Načtení zálohy', 'V jiném telefonu nebo prohlížeči otevřete knížku, dejte Načíst zálohu a vyberte uložený soubor. Plavby se objeví.']
+  ]],
+  ['Vzhled a ovládání', [
+    ['dark', 'Tmavý režim', 'Přepněte telefon do tmavého režimu. Všechny texty a tlačítka jsou dobře čitelné.'],
+    ['sun', 'Čitelnost venku', 'Zkuste knížku na slunci nebo na palubě. Jsou čísla a tlačítka čitelná?'],
+    ['back', 'Tlačítko Zpět', 'Systémové Zpět (tlačítko nebo gesto) vrací vždy o jednu obrazovku a z knížky nevyskočí dřív, než jste na úvodní obrazovce.']
+  ]],
+  ['Celkový dojem', [
+    ['impression', 'Co chybí nebo mate', 'Cokoli, co vás při zápisu zarazilo, chybělo nebo by se vám hodilo. Stačí napsat do poznámky.']
+  ]]
+];
+const ITEMS = SECTIONS.flatMap(([, items]) => items.map(i => i[0]));
+const LABEL = { ok: 'Funguje', fail: 'Nefunguje', skip: 'Nešlo vyzkoušet' };
+
+let db = null, user = null, myId = null, canWrite = false;
+let mine = { device: '', results: {} };   // moje rozpracované výsledky
+let others = {};                            // id → {device, results}
+let gotMine = false, touched = false;
+
+const $ = s => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function renderList() {
+  const root = $('#list'); root.textContent = '';
+  let n = 0;
+  for (const [title, items] of SECTIONS) {
+    const h = el('h2', null, title);
+    const done = items.filter(([id]) => mine.results[id]?.s).length;
+    h.append(el('span', 'count', `${done}/${items.length}`));
+    const ol = el('ol');
+    for (const [id, name, how] of items) {
+      n++;
+      const r = mine.results[id] || {};
+      const li = el('li'), item = el('div', 'item'); item.dataset.s = r.s || '';
+      const h3 = el('h3'); h3.append(el('span', 'n', String(n).padStart(2, '0')), el('span', null, name));
+      item.append(h3, el('p', 'how', how));
+      const stamps = el('div', 'stamps');
+      for (const v of ['ok', 'fail', 'skip']) {
+        const b = el('button', 'stamp', LABEL[v]); b.type = 'button'; b.dataset.v = v; b.dataset.item = id;
+        b.setAttribute('aria-pressed', r.s === v ? 'true' : 'false'); b.disabled = !canWrite;
+        stamps.append(b);
+      }
+      const ta = el('textarea'); ta.id = 'note-' + id; ta.dataset.item = id; ta.value = r.note || ''; ta.disabled = !canWrite;
+      ta.placeholder = id === 'impression' ? 'Vaše postřehy…' : 'Poznámka: co přesně se stalo, na jaké obrazovce…';
+      item.append(stamps, ta);
+      const peers = Object.entries(others).filter(([, o]) => o.results && (o.results[id]?.s || o.results[id]?.note));
+      if (peers.length) {
+        const box = el('div', 'others'); box.dataset.peers = peers.map(([pid]) => pid).join(',');
+        for (const [pid, o] of peers) {
+          const row = el('div', 'other'), res = o.results[id];
+          row.append(el('span', 'who', '…'));
+          if (res.s) row.append(el('span', 'tag ' + res.s, LABEL[res.s]));
+          if (o.device) row.append(el('span', 'dev', o.device));
+          if (res.note) row.append(el('span', 'note', '– ' + res.note));
+          row.dataset.pid = pid; box.append(row);
+        }
+        item.append(box);
+      }
+      li.append(item); ol.append(li);
+    }
+    root.append(h, ol);
+  }
+  const done = ITEMS.filter(id => mine.results[id]?.s).length;
+  $('#barFill').style.width = (100 * done / ITEMS.length) + '%';
+  $('#progressText').textContent = `${done} / ${ITEMS.length}`;
+  resolveNames();
+}
+
+async function resolveNames() {
+  const rows = [...document.querySelectorAll('.other[data-pid]')];
+  if (!rows.length) return;
+  const ps = user ? await user.profiles([...new Set(rows.map(r => r.dataset.pid))]) : {};
+  for (const r of rows) r.querySelector('.who').textContent = (ps[r.dataset.pid]?.name || 'Tester') + ':';
+}
+
+function setStatus(msg, warn) { const s = $('#status'); s.textContent = msg; s.classList.toggle('warn', !!warn); }
+
+// Zápis vlastního dokumentu: vždy jen jeden najednou, další změny se slijí do následujícího.
+let writing = false, dirty = false;
+async function save() {
+  if (!db || !myId || !canWrite) return;
+  if (writing) { dirty = true; return; }
+  writing = true; setStatus('Ukládám…');
+  try {
+    do { dirty = false; await db.doc('testers/' + myId).set({ device: mine.device, results: mine.results, updated: new Date().toISOString() }); } while (dirty);
+    setStatus('Uloženo. Výsledky vidí i ostatní testeři.');
+  } catch (e) {
+    if (e && e.code === 'invalid_argument') { canWrite = false; renderList(); setStatus('Tady můžete výsledky jen číst. Pro zápis požádejte autora o přístup „Přispěvatel“.', true); }
+    else setStatus('Uložení se nepovedlo, zkuste to prosím znovu.', true);
+  } finally { writing = false; }
+}
+let noteTimer = null;
+function saveSoon() { clearTimeout(noteTimer); noteTimer = setTimeout(save, 800); }
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('.stamp'); if (!b || b.disabled) return;
+  const id = b.dataset.item, r = mine.results[id] || (mine.results[id] = {});
+  r.s = r.s === b.dataset.v ? '' : b.dataset.v; r.at = new Date().toISOString();
+  touched = true; renderList();
+  const ta = document.getElementById('note-' + id); if (r.s === 'fail' && ta && !ta.value) ta.focus();
+  save();
+});
+document.addEventListener('input', e => {
+  if (e.target.matches('textarea[data-item]')) {
+    const id = e.target.dataset.item, r = mine.results[id] || (mine.results[id] = {});
+    r.note = e.target.value; touched = true; saveSoon();
+  } else if (e.target.id === 'device') { mine.device = e.target.value.trim(); touched = true; saveSoon(); }
+});
+$('#copy').addEventListener('click', async () => {
+  const url = $('#appUrl').href, b = $('#copy');
+  try { await navigator.clipboard.writeText(url); b.textContent = 'Zkopírováno'; }
+  catch { const r = document.createRange(); r.selectNodeContents($('#appUrl')); getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = 'Označeno – zkopírujte'; }
+  setTimeout(() => { b.textContent = 'Kopírovat odkaz'; }, 2500);
+});
+
+renderList();
+$('#device').disabled = true;
+
+(async () => {
+  [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+  myId = user ? await user.id() : null;
+  if (!db || !myId) { setStatus('Výsledky se ukládají jen po přihlášení do Claude. Body si můžete přečíst, odškrtávat zatím nejde.', true); return; }
+  const w = user ? await user.can('data.write') : null;
+  canWrite = w !== false;
+  $('#device').disabled = !canWrite;
+  db.collection('testers').onSnapshot(snap => {
+    const o = {};
+    for (const d of snap.docs) {
+      const data = d.data() || {};
+      if (d.id === myId) {
+        if (!gotMine && !touched) { mine = { device: data.device || '', results: structuredClone(data.results || {}) }; $('#device').value = mine.device; }
+        gotMine = true;
+      } else o[d.id] = data;
+    }
+    gotMine = true; others = o;
+    // nepřekreslovat pod rukama, když zrovna píšu poznámku
+    const a = document.activeElement;
+    if (!(a && a.matches('textarea[data-item], #device'))) renderList();
+    if ($('#status').textContent.startsWith('Načítám')) setStatus(canWrite ? 'Klepněte u každého bodu, jak dopadl. Ukládá se samo.' : 'Tady můžete výsledky jen číst.', !canWrite);
+  }, () => setStatus('Výsledky ostatních se nepodařilo načíst. Obnovte stránku.', true));
+  if (!canWrite) { renderList(); setStatus('Tady můžete výsledky jen číst. Pro zápis požádejte autora o přístup „Přispěvatel“.', true); }
+})();
+</script>
