@@ -22,6 +22,9 @@ Vlastník projektu: Jarda Foršt (IFP). Komunikace a celé uživatelské rozhran
 
 - `node build.mjs` – sestavení
 - `node tools/test-export.mjs` – test exportu a souhrnů
+- `node tools/test-ui.mjs` – test obrazovek v prohlížeči (Playwright, šířka 360 px) nad `dist/`;
+  poprvé `npm install && npx playwright install chromium`. Vše najednou: `npm test`.
+  Playwright je jen vývojový nástroj, do aplikace se nic nepřidává. Novou funkci doplnit i do testu.
 - Lokální zkouška: `npx serve dist/jachtarska-knizka` nebo `python -m http.server -d dist/jachtarska-knizka`
 
 ## Data

@@ -1,5 +1,5 @@
-# Zkušební verze na GitHub Pages: po každém pushi do main otestuje export,
-# sestaví aplikaci (node build.mjs) a nasadí dist/jachtarska-knizka.
+# Zkušební verze na GitHub Pages: po každém pushi do main sestaví aplikaci (node build.mjs),
+# otestuje export a obrazovky a teprve když vše projde, nasadí dist/jachtarska-knizka.
 name: Zkušební verze (GitHub Pages)
 
 on:
@@ -24,8 +24,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: node build.mjs
       - run: node tools/test-export.mjs
+      - name: Test obrazovek
+        run: node tools/test-ui.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/jachtarska-knizka
